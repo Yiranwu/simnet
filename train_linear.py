@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import load_data, accuracy
-from models import GAT, SpGAT, BallEncoder
+from models import GAT, SpGAT, BallEncoder,TestLinear
 from datasets import BallDataset
 
 # Training settings
@@ -28,12 +28,12 @@ parser.add_argument('--seed', type=int, default=72, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=1000, help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=32, help='Number of hidden units.')
-parser.add_argument('--nb_heads', type=int, default=8, help='Number of head attentions.')
+parser.add_argument('--hidden', type=int, default=1024, help='Number of hidden units.')
+parser.add_argument('--nb_heads', type=int, default=32, help='Number of head attentions.')
 parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=100, help='Patience')
-parser.add_argument('--batch_size', type=int, default=1)
+parser.add_argument('--batch_size', type=int, default=128)
 
 args = parser.parse_args()
 batch_size=args.batch_size
@@ -51,27 +51,12 @@ writer = SummaryWriter(log_dir='runs/train_ball')
 #adj, features, labels, idx_train, idx_val, idx_test = load_data()
 nfeat=32
 # Model and optimizer
-if args.sparse:
-    model = SpGAT(nfeat=nfeat,
-                nhid=args.hidden,
-                nclass=6,
-                dropout=args.dropout, 
-                nheads=args.nb_heads, 
-                alpha=args.alpha)
-else:
-    model = GAT(nfeat=nfeat,
-                nhid=args.hidden, 
-                nclass=6,
-                dropout=args.dropout, 
-                nheads=args.nb_heads, 
-                alpha=args.alpha,
-                batch_size=batch_size)
+model=TestLinear(batch_size)
 
-ball_encoder = BallEncoder(nfeat=nfeat)
+ball_encoder = BallEncoder()
 boundary_feat = Variable(torch.randn(1,nfeat), requires_grad=True)
-all_param=list(model.parameters()) + list(ball_encoder.parameters()) + [boundary_feat]
-optimizer = optim.Adam(all_param,
-                       lr=args.lr, 
+optimizer = optim.Adam(model.parameters(),
+                       lr=args.lr,
                        weight_decay=args.weight_decay)
 
 if args.cuda:
@@ -99,14 +84,14 @@ def train(epoch):
             label_batch=label_batch.cuda()
         optimizer.zero_grad()
 
-        ball_feat=ball_encoder(obj_batch)
+        #ball_feat=ball_encoder(obj_batch)
 
-        bound_feat=boundary_feat.repeat(batch_size,1).view([batch_size,1,-1])
-        feat_batch=torch.cat([ball_feat, bound_feat], axis=1)
+        #bound_feat=boundary_feat.repeat(batch_size,1).view([batch_size,1,-1])
+        #feat_batch=torch.cat([ball_feat, bound_feat], axis=1)
         # check if axis is correct?
 
 
-        output = model(feat_batch, adj_batch)[:,:3,:]
+        output = model(obj_batch, adj_batch)[:,:3,:]
         # output shape: batch x 3 x 6
         angle_output=output[:,:,0]
         sin_output=torch.sin(angle_output)

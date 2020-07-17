@@ -56,11 +56,11 @@ def plot_loss_curve(f):
     with open(f, 'rb') as file:
         for line in file:
             if line.startswith(b'train'):
-                numbers = float(line[15:])
+                numbers = float(line[13:])
                 train.append(numbers)
                 t.append([tick])
             if line.startswith(b'test'):
-                numbers = float(line[15:])
+                numbers = float(line[12:])
                 test.append(numbers)
                 tick+=1
         print(train)

@@ -72,15 +72,30 @@ class BallEncoder(nn.Module):
         x = self.l2(x)
         return x
 
+
+class ObjectEncoder(nn.Module):
+    def __init__(self, cin=12, cout=32):
+        """Sparse version of GAT."""
+        super(ObjectEncoder, self).__init__()
+        self.l1=nn.Linear(cin, 32)
+        self.l2=nn.Linear(32,32)
+        self.l3=nn.Linear(32,cout)
+
+    def forward(self, x):
+        x = F.relu(self.l1(x))
+        x = F.relu(self.l2(x))
+        x = self.l3(x)
+        return x
+
 class TestLinear(nn.Module):
-    def __init__(self, batch_size=128):
+    def __init__(self, cin, cout, batch_size=128):
         """Sparse version of GAT."""
         super(TestLinear, self).__init__()
-        self.l1=nn.Linear(6, 512)
+        self.l1=nn.Linear(cin, 512)
         self.l2=nn.Linear(512,512)
         self.l3=nn.Linear(512,512)
         self.l4=nn.Linear(512,512)
-        self.l5=nn.Linear(512,6)
+        self.l5=nn.Linear(512,cout)
 
     def forward(self, x, adj):
 
@@ -207,7 +222,7 @@ class GIN(torch.nn.Module):
         x = F.relu(self.conv5(x, edge_index))
         x = self.bn5(x)
         #print('after conv x: ', x.shape)
-        #x = global_add_pool(x, batch)
+        x = global_add_pool(x, batch)
         #print('after pool x: ', x.shape)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=0.5, training=self.training)

@@ -207,6 +207,8 @@ class GIN(torch.nn.Module):
         self.fc2 = nn.Linear(dim, nclass)
 
     def forward(self, x, data):
+        #print(x.shape)
+
         edge_index=data.edge_index
         batch=data.batch
         #print('net init x: ', x.shape)
@@ -222,10 +224,68 @@ class GIN(torch.nn.Module):
         x = F.relu(self.conv5(x, edge_index))
         x = self.bn5(x)
         #print('after conv x: ', x.shape)
-        x = global_add_pool(x, batch)
+        #x = global_add_pool(x, batch)
         #print('after pool x: ', x.shape)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
+        #print(x.shape)
+        return x
+        #return F.log_softmax(x, dim=-1)
+
+
+class GINWOBN(torch.nn.Module):
+    def __init__(self, nfeat=12, nclass=6):
+        super(GINWOBN, self).__init__()
+
+        dim = 128
+
+        nn1 = nn.Sequential(nn.Linear(nfeat, dim), nn.ReLU(), nn.Linear(dim, dim))
+        self.conv1 = GINConv(nn1)
+        self.bn1 = torch.nn.BatchNorm1d(dim)
+
+        nn2 = nn.Sequential(nn.Linear(dim, dim), nn.ReLU(), nn.Linear(dim, dim))
+        self.conv2 = GINConv(nn2)
+        self.bn2 = torch.nn.BatchNorm1d(dim)
+
+        nn3 = nn.Sequential(nn.Linear(dim, dim), nn.ReLU(), nn.Linear(dim, dim))
+        self.conv3 = GINConv(nn3)
+        self.bn3 = torch.nn.BatchNorm1d(dim)
+
+        nn4 = nn.Sequential(nn.Linear(dim, dim), nn.ReLU(), nn.Linear(dim, dim))
+        self.conv4 = GINConv(nn4)
+        self.bn4 = torch.nn.BatchNorm1d(dim)
+
+        nn5 = nn.Sequential(nn.Linear(dim, dim), nn.ReLU(), nn.Linear(dim, dim))
+        self.conv5 = GINConv(nn5)
+        self.bn5 = torch.nn.BatchNorm1d(dim)
+
+        self.fc1 = nn.Linear(dim, dim)
+        self.fc2 = nn.Linear(dim, nclass)
+
+    def forward(self, x, data):
+        #print(x.shape)
+
+        edge_index=data.edge_index
+        batch=data.batch
+        #print('net init x: ', x.shape)
+        #exit()
+        x = F.relu(self.conv1(x, edge_index))
+        #x = self.bn1(x)
+        x = F.relu(self.conv2(x, edge_index))
+        #x = self.bn2(x)
+        x = F.relu(self.conv3(x, edge_index))
+        #x = self.bn3(x)
+        x = F.relu(self.conv4(x, edge_index))
+        #x = self.bn4(x)
+        x = F.relu(self.conv5(x, edge_index))
+        #x = self.bn5(x)
+        #print('after conv x: ', x.shape)
+        #x = global_add_pool(x, batch)
+        #print('after pool x: ', x.shape)
+        x = F.relu(self.fc1(x))
+        #x = F.dropout(x, p=0.5, training=self.training)
+        x = self.fc2(x)
+        #print(x.shape)
         return x
         #return F.log_softmax(x, dim=-1)

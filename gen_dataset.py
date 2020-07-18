@@ -3,6 +3,16 @@ import numpy as np
 import pickle
 import argparse
 
+def get_data_from_string(body_info, contact_info, obj_attr_data, mean, std):
+    #print('need to check @gen_dataset.get_data_from_string: split')
+
+    data = {'body_info': body_info, 'contact_info': contact_info}
+    body_array, conn_array = get_scene_stats(data, obj_attr_data)
+
+    body_array[:,:7] = (body_array[:,:7] - mean) / std
+    #body_array.reshape([1,-1,13])
+    return body_array, conn_array
+
 def get_data_from_file(filename):
     datas=[json.loads(line) for line in open(filename,'r')]
     timestep=600
@@ -12,11 +22,12 @@ def get_data_from_file(filename):
     #print(datas[0])
     #print(datas[1])
     #print(get_obj_attr(datas[0], datas[1]))
-    obj_attr_data = get_obj_attr(datas[0], datas[1])
+    obj_attr_data=get_obj_attrs(datas[0], datas[1])
     body_array, conn_array = get_scene_stats(datas[2], obj_attr_data)
+    #body_array, conn_array = get_scene_stats(datas[2], obj_attr_data)
     #exit()
     #print(type(body_array))
-    for j in range(timestep - 1):
+    for j in range(timestep-1):
         #print('j')
         #print(datas[3+j]['timestamp'])
         new_body_array, new_conn_array = get_scene_stats(datas[3+j], obj_attr_data)
@@ -37,8 +48,14 @@ def get_data_from_file(filename):
     cflag_data = np.array(cflag_data)
     return obj_data, conn_data, label_data, cflag_data
 
-def get_obj_attr(feat_obj, action_obj):
+def get_obj_attrs(feat_obj, action_obj):
     attrs = []
+    #print('feat_obj:')
+    #print(feat_obj)
+    #print('type feat_obj:')
+    #print(type(feat_obj))
+    #print('obj:')
+    #print(type(feat_obj['featurized_objects']))
     for obj in feat_obj['featurized_objects']:
         attrs.append(obj)
     for obj in action_obj['featurized_objects']:
@@ -70,6 +87,26 @@ def get_body_array(info, attr):
     arr[7], arr[8], arr[9], arr[10], arr[11] = get_one_hot_attr(attr['shape'])
     arr[12] = attr['color']!='BLACK'
     return arr
+
+def get_init_body_array(attrs):
+    body_arrays=[]
+    for attr in attrs:
+        arr=np.zeros([13])
+        arr[0]=attr['initial_angle']
+        arr[1]=attr['initial_x']
+        arr[2]=attr['initial_y']
+        arr[3]=0.0
+        arr[4]=0.0
+        arr[5]=0.0
+
+
+        arr[6]=attr['diameter']
+        arr[7], arr[8], arr[9], arr[10], arr[11] = get_one_hot_attr(attr['shape'])
+        arr[12] = attr['color']!='BLACK'
+        body_arrays.append(arr)
+    # forget standard for conn array
+    body_arrays += [get_wall_array()]
+    return np.array(body_arrays), np.array([], dtype=np.int64)
 
 def get_wall_array():
     arr=np.zeros(13)
@@ -117,72 +154,73 @@ def get_scene_stats(data, attrs):
     return process_body_info(data['body_info']['bodies'], attrs), \
         process_contact_info(data['contact_info']['contacts'], len(attrs))
 
+if __name__ == '__main__':
+    parser=argparse.ArgumentParser()
 
-parser=argparse.ArgumentParser()
+    #parser.add_argument("--task_id", help="input a specific task id with format xxxxx:xxx", type=str)
 
-#parser.add_argument("--task_id", help="input a specific task id with format xxxxx:xxx", type=str)
+    parser.add_argument("--start_template_id", help="start template id", type=int, default=1)
+    parser.add_argument("--end_template_id", help="end template id", type=int, default=1)
+    parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=100)
+    parser.add_argument("--data_path", help="folder of data file", type=str, default='data')
+    parser.add_argument("--shuffle", action='store_true', default=True)
+    parser.add_argument('--normalize', action='store_true', default=True)
+    config=parser.parse_args()
+    start_tid=config.start_template_id
+    end_tid=config.end_template_id
+    num_mods=config.num_mods
+    data_path=config.data_path
+    normalize=config.normalize
+    shuffle=config.shuffle
 
-parser.add_argument("--start_template_id", help="start template id", type=int, default=1)
-parser.add_argument("--end_template_id", help="end template id", type=int, default=1)
-parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=100)
-parser.add_argument("--data_path", help="folder of data file", type=str, default='data')
-parser.add_argument("--shuffle", action='store_true', default=True)
-parser.add_argument('--normalize', action='store_true', default=True)
-config=parser.parse_args()
-start_tid=config.start_template_id
-end_tid=config.end_template_id
-num_mods=config.num_mods
-data_path=config.data_path
-normalize=config.normalize
-shuffle=config.shuffle
+    obj_datas, conn_datas, label_datas = [], [], []
+    cflag_datas=[]
+    for i in range(start_tid, end_tid+1):
+        for j in range(num_mods):
+            filename = data_path+'/'+('%05d'%i)+':'+('%03d'%j)+'.log'
+            print(filename)
+            obj_data, conn_data, label_data, cflag_data = get_data_from_file(filename)
+            obj_datas.append(obj_data)
+            #conn_datas.append(conn_data)
+            conn_datas = conn_datas + conn_data
+            label_datas.append(label_data)
+            cflag_datas.append(cflag_data)
 
-obj_datas, conn_datas, label_datas = [], [], []
-cflag_datas=[]
-for i in range(start_tid, end_tid+1):
-    for j in range(num_mods):
-        filename = data_path+'/'+('%05d'%i)+':'+('%03d'%j)+'.log'
-        print(filename)
-        obj_data, conn_data, label_data, cflag_data = get_data_from_file(filename)
-        obj_datas.append(obj_data)
-        #conn_datas.append(conn_data)
-        conn_datas = conn_datas + conn_data
-        label_datas.append(label_data)
-        cflag_datas.append(cflag_data)
+    obj_datas=np.concatenate(obj_datas, axis=0)
+    scene_num, obj_num = obj_datas.shape[0], obj_datas.shape[1]
+    conn_datas=np.array(conn_datas)
+    label_datas=np.concatenate(label_datas, axis=0)
+    cflag_datas=np.concatenate(cflag_datas, axis=0)
 
-obj_datas=np.concatenate(obj_datas, axis=0)
-scene_num, obj_num = obj_datas.shape[0], obj_datas.shape[1]
-conn_datas=np.array(conn_datas)
-label_datas=np.concatenate(label_datas, axis=0)
-cflag_datas=np.concatenate(cflag_datas, axis=0)
-
-if normalize:
-    obj_datas = obj_datas.reshape([-1, 13])
-    mean = np.mean(obj_datas[:,:7], axis=0)
-    std = np.std(obj_datas[:,:7], axis=0)
-    obj_datas[:,:7] = ((obj_datas[:,:7] - mean) / std)
-    obj_datas = obj_datas.reshape([-1, obj_num, 13])
+    if normalize:
+        obj_datas = obj_datas.reshape([-1, 13])
+        mean = np.mean(obj_datas[:,:7], axis=0)
+        std = np.std(obj_datas[:,:7], axis=0)
+        obj_datas[:,:7] = ((obj_datas[:,:7] - mean) / std)
+        obj_datas = obj_datas.reshape([-1, obj_num, 13])
 
 
-label_datas = label_datas[:, :, :6]
+    label_datas = label_datas[:, :, :6]
 
-if normalize:
-    label_datas = label_datas / std[:6]
+    if normalize:
+        label_datas = label_datas / std[:6]
 
-if shuffle:
-    idx = np.arange(obj_datas.shape[0])
-    np.random.shuffle(idx)
-    obj_datas = obj_datas[idx]
-    conn_datas = conn_datas[idx]
-    label_datas = label_datas[idx]
-    cflag_datas= cflag_datas[idx]
+    if shuffle:
+        idx = np.arange(obj_datas.shape[0])
+        np.random.shuffle(idx)
+        obj_datas = obj_datas[idx]
+        conn_datas = conn_datas[idx]
+        label_datas = label_datas[idx]
+        cflag_datas= cflag_datas[idx]
 
-np.save('data/%05d_obj_data.npy'%start_tid, obj_datas)
-np.save('data/%05d_conn_data.npy'%start_tid, conn_datas, allow_pickle=True)
-np.save('data/%05d_label_data.npy'%start_tid, label_datas)
-np.save('data/%05d_cflag_data.npy'%start_tid, cflag_datas)
-print(obj_datas.shape)
-print(conn_datas.shape)
-print(conn_datas[0].shape)
-print(label_datas.shape)
-print(cflag_datas.shape)
-print('data/%05d_obj_data.npy  generated'%start_tid)
+    np.save('data/%05d_obj_data.npy'%start_tid, obj_datas)
+    np.save('data/%05d_conn_data.npy'%start_tid, conn_datas, allow_pickle=True)
+    np.save('data/%05d_label_data.npy'%start_tid, label_datas)
+    np.save('data/%05d_cflag_data.npy'%start_tid, cflag_datas)
+    np.savez('data/mean_std.npz', mean=mean, std=std)
+    print(obj_datas.shape)
+    print(conn_datas.shape)
+    print(conn_datas[0].shape)
+    print(label_datas.shape)
+    print(cflag_datas.shape)
+    print('data/%05d_obj_data.npy  generated'%start_tid)

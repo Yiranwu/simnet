@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import load_data, accuracy
-from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear
+from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINWOBN
 from datasets import GDataset, GTestDataset
 
 # Training settings
@@ -52,7 +52,7 @@ writer = SummaryWriter(log_dir='runs/train_gball')
 nfeat=12
 nembed=32
 # Model and optimizer
-net=GIN(nfeat=nfeat+nembed, nclass=6)
+net=GINWOBN(nfeat=nfeat+nembed, nclass=6)
 #net=TestLinear(cin=nfeat+nembed, cout=6)
 model = net.double()
 
@@ -98,6 +98,9 @@ def train(epoch):
         if(args.cuda):
             data=data.to('cuda:0')
         optimizer.zero_grad()
+        #print(data.batch)
+        #print(data.batch.min())
+        #exit()
 
         obj_feat=obj_encoder(data.x[:,:nfeat])
         #print(feat_batch.shape)
@@ -124,36 +127,37 @@ def train(epoch):
         #print (data.x.shape)
         #print(output.shape)
         #exit()
-        movable_map=data.x[:,nfeat].long()
-        output = output[~movable_map]
-        label = data.y[~movable_map]
+        movable_map=data.x[:,nfeat].bool()
+        masked_output = output[movable_map]
+        masked_label = data.y[movable_map]
+        #print(output.shape)
+        #print(label.shape)
         #print(output)
         #exit()
         # output shape: batch x 3 x 6
-        loss = criterion(output, label)
-        loss_train_1=criterion(output[:,0], data.y[:,0]).data.item()
-        loss_train_2=criterion(output[:,1], data.y[:,1]).data.item()
-        loss_train_3=criterion(output[:,2], data.y[:,2]).data.item()
-        loss_train_4=criterion(output[:,3], data.y[:,3]).data.item()
-        loss_train_5=criterion(output[:,4], data.y[:,4]).data.item()
-        loss_train_6=criterion(output[:,5], data.y[:,5]).data.item()
+        loss = criterion(masked_output, masked_label)
+        loss_train_1=criterion(masked_output[:,0], masked_label[:,0]).data.item()
+        loss_train_2=criterion(masked_output[:,1], masked_label[:,1]).data.item()
+        loss_train_3=criterion(masked_output[:,2], masked_label[:,2]).data.item()
+        loss_train_4=criterion(masked_output[:,3], masked_label[:,3]).data.item()
+        loss_train_5=criterion(masked_output[:,4], masked_label[:,4]).data.item()
+        loss_train_6=criterion(masked_output[:,5], masked_label[:,5]).data.item()
 
         #print(data.x[:,:nfeat][:,4])
         #print(label[:,4])
         #exit()
         #'''
-        ccnt=torch.zeros([output.shape[0]])
-        ccnt[data.edge_index[0]] += 1
-        #print(ccnt)
-        #print(data.edge_index)
-        cflag=ccnt>0
-        cnt_val+=output.shape[0]
-        ccnt_val+=cflag.sum().item()
 
-        all_loss=criterion_sum(output[:,4], data.y[:,4]).data.item()
-        c_loss = criterion_sum(output[cflag][:,4], data.y[cflag][:,4]).data.item()
-        closs_val+=c_loss
-        allloss_val+=all_loss
+        #ccnt=torch.zeros([masked_output.shape[0]])
+        #ccnt[data.edge_index[0]] += 1
+        #cflag=ccnt>0
+        #cnt_val+=output.shape[0]
+        #ccnt_val+=cflag.sum().item()
+
+        #all_loss=criterion_sum(output[:,4], data.y[:,4]).data.item()
+        #c_loss = criterion_sum(output[cflag][:,4], data.y[cflag][:,4]).data.item()
+        #closs_val+=c_loss
+        #allloss_val+=all_loss
         #print('closs/allloss: %f/%f=%f',c_loss,all_loss,c_loss/all_loss)
         #exit()
         #'''
@@ -199,8 +203,8 @@ def train(epoch):
                                                   loss_val_3,loss_val_4,
                                                   loss_val_5,loss_val_6))
     print('train loss: ', loss_val)
-    print('closs/allloss: %f/%f=%f',closs_val,allloss_val,closs_val/allloss_val)
-    print('cpoint/allpoint ', ccnt_val, cnt_val, ccnt_val/cnt_val)
+    #print('closs/allloss: %f/%f=%f',closs_val,allloss_val,closs_val/allloss_val)
+    #print('cpoint/allpoint ', ccnt_val, cnt_val, ccnt_val/cnt_val)
     writer.add_scalar('train_loss', loss_val, global_step=epoch)
     return loss_val
 
@@ -246,19 +250,21 @@ def eval(epoch):
         #print (data.x.shape)
         #print(output.shape)
         #exit()
-        movable_map=data.x[:,nfeat].long()
-        output = output[~movable_map]
-        label = data.y[~movable_map]
+        movable_map=data.x[:,nfeat].bool()
+        masked_output = output[movable_map]
+        masked_label = data.y[movable_map]
+        #print(output.shape)
+        #print(label.shape)
         #print(output)
         #exit()
         # output shape: batch x 3 x 6
-        loss = criterion(output, label)
-        loss_train_1=criterion(output[:,0], data.y[:,0]).data.item()
-        loss_train_2=criterion(output[:,1], data.y[:,1]).data.item()
-        loss_train_3=criterion(output[:,2], data.y[:,2]).data.item()
-        loss_train_4=criterion(output[:,3], data.y[:,3]).data.item()
-        loss_train_5=criterion(output[:,4], data.y[:,4]).data.item()
-        loss_train_6=criterion(output[:,5], data.y[:,5]).data.item()
+        loss = criterion(masked_output, masked_label)
+        loss_train_1=criterion(masked_output[:,0], masked_label[:,0]).data.item()
+        loss_train_2=criterion(masked_output[:,1], masked_label[:,1]).data.item()
+        loss_train_3=criterion(masked_output[:,2], masked_label[:,2]).data.item()
+        loss_train_4=criterion(masked_output[:,3], masked_label[:,3]).data.item()
+        loss_train_5=criterion(masked_output[:,4], masked_label[:,4]).data.item()
+        loss_train_6=criterion(masked_output[:,5], masked_label[:,5]).data.item()
 
         '''
         ccnt=torch.zeros([output.shape[0]])
@@ -330,7 +336,7 @@ for epoch in range(args.epochs):
     #    epoch_nb = int(file.split('.')[0])
     #    if epoch_nb < best_epoch:
     #        os.remove(file)
-torch.save(model.state_dict(), 'gin-5-60.pth')
+torch.save(model.state_dict(), 'ginwobn-5-60.pth')
 files = glob.glob('*.pkl')
 for file in files:
     epoch_nb = int(file.split('.')[0])

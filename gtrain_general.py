@@ -25,7 +25,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False, help='Disab
 parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
 parser.add_argument('--sparse', action='store_true', default=False, help='GAT with sparse version or not.')
 parser.add_argument('--seed', type=int, default=72, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=60, help='Number of epochs to train.')
+parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--hidden', type=int, default=32, help='Number of hidden units.')
@@ -34,10 +34,15 @@ parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=100, help='Patience')
 parser.add_argument('--batch_size', type=int, default=128)
+parser.add_argument('--exp_name', type=str, default='gin-bn-nocor-5')
+#parser.add_argument('--dataset_spec', type=str, default='00001_noise_')
+parser.add_argument('--dataset_spec', type=str, default='00001_')
 
 args = parser.parse_args()
 batch_size=args.batch_size
 args.cuda = not args.no_cuda and torch.cuda.is_available()
+exp_name=args.exp_name
+dataset_spec=args.dataset_spec
 
 random.seed(args.seed)
 np.random.seed(args.seed)
@@ -52,7 +57,7 @@ writer = SummaryWriter(log_dir='runs/train_gball')
 nfeat=12
 nembed=32
 # Model and optimizer
-net=GINWOBN(nfeat=nfeat+nembed, nclass=6)
+net=GIN(nfeat=nfeat+nembed, nclass=6)
 #net=TestLinear(cin=nfeat+nembed, cout=6)
 model = net.double()
 
@@ -67,9 +72,9 @@ if args.cuda:
     model.cuda()
     obj_encoder=obj_encoder.cuda()
 
-data_path='/home/yiran/pc_mapping/simnet/data/00001_'
-os.system('rm %s/data.pt'%data_path)
-os.system('rm %s/data_test.pt'%data_path)
+data_path='/home/yiran/pc_mapping/simnet/data/%s'%dataset_spec
+os.system('rm %sprocessed_data.pt'%data_path)
+os.system('rm %sprocessed_data_test.pt'%data_path)
 #features, adj, labels = Variable(features), Variable(adj), Variable(labels)
 dataset=GDataset(data_path, nfeat=nfeat)
 dataloader=DataLoader(dataset, batch_size=batch_size, drop_last=True)
@@ -336,7 +341,7 @@ for epoch in range(args.epochs):
     #    epoch_nb = int(file.split('.')[0])
     #    if epoch_nb < best_epoch:
     #        os.remove(file)
-torch.save(model.state_dict(), 'ginwobn-5-60.pth')
+torch.save(model.state_dict(), '%s.pth'%exp_name)
 files = glob.glob('*.pkl')
 for file in files:
     epoch_nb = int(file.split('.')[0])

@@ -181,7 +181,7 @@ class GDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [self.root+'/data.pt']
+        return [self.root+'processed_data.pt']
 
     def download(self):
         pass
@@ -251,7 +251,7 @@ class GTestDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return [self.root+'/data_test.pt']
+        return [self.root+'processed_data_test.pt']
 
     def download(self):
         pass

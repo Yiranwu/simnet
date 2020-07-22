@@ -14,7 +14,7 @@ from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear
 from datasets import GDataset, GTestDataset
 
 class rollout_predictor():
-    def __init__(self, task_id='00001:000', model_path='gin-5-60.pth'):
+    def __init__(self, task_id='00001:000', model_path='gin-5-60.pth', dataset_spec='00001_'):
         self.task_id=task_id
         self.model_path=model_path
         batch_size=128
@@ -33,7 +33,7 @@ class rollout_predictor():
         model.eval()
         self.model=model
         self.obj_encoder=obj_encoder
-        mean_std=np.load('/home/yiran/pc_mapping/simnet/data/mean_std.npz')
+        mean_std=np.load('/home/yiran/pc_mapping/simnet/data/%smean_std.npz'%dataset_spec)
         self.mean=mean_std['mean']
         self.std=mean_std['std']
 

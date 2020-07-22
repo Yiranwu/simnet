@@ -165,6 +165,7 @@ if __name__ == '__main__':
     parser.add_argument("--data_path", help="folder of data file", type=str, default='data')
     parser.add_argument("--shuffle", action='store_true', default=True)
     parser.add_argument('--normalize', action='store_true', default=True)
+    parser.add_argument('--corrupt', action='store_true', default=True)
     config=parser.parse_args()
     start_tid=config.start_template_id
     end_tid=config.end_template_id
@@ -172,6 +173,8 @@ if __name__ == '__main__':
     data_path=config.data_path
     normalize=config.normalize
     shuffle=config.shuffle
+    corrupt=config.corrupt
+    dataset_spec='%05d%s'%(start_tid, '_noise' if corrupt else '')
 
     obj_datas, conn_datas, label_datas = [], [], []
     cflag_datas=[]
@@ -199,6 +202,14 @@ if __name__ == '__main__':
         obj_datas[:,:7] = ((obj_datas[:,:7] - mean) / std)
         obj_datas = obj_datas.reshape([-1, obj_num, 13])
 
+    if corrupt:
+        py_noise=np.random.normal(scale=0.01, size=(scene_num, obj_num))
+        obj_datas[:,:,2] += py_noise
+        vy_noise=np.random.normal(scale=0.01, size=(scene_num, obj_num))
+        obj_datas[:,:,4] += vy_noise
+
+
+
 
     label_datas = label_datas[:, :, :6]
 
@@ -213,14 +224,14 @@ if __name__ == '__main__':
         label_datas = label_datas[idx]
         cflag_datas= cflag_datas[idx]
 
-    np.save('data/%05d_obj_data.npy'%start_tid, obj_datas)
-    np.save('data/%05d_conn_data.npy'%start_tid, conn_datas, allow_pickle=True)
-    np.save('data/%05d_label_data.npy'%start_tid, label_datas)
-    np.save('data/%05d_cflag_data.npy'%start_tid, cflag_datas)
-    np.savez('data/mean_std.npz', mean=mean, std=std)
+    np.save('data/%s_obj_data.npy'%dataset_spec, obj_datas)
+    np.save('data/%s_conn_data.npy'%dataset_spec, conn_datas, allow_pickle=True)
+    np.save('data/%s_label_data.npy'%dataset_spec, label_datas)
+    np.save('data/%s_cflag_data.npy'%dataset_spec, cflag_datas)
+    np.savez('data/%s_mean_std.npz'%dataset_spec, mean=mean, std=std)
     print(obj_datas.shape)
     print(conn_datas.shape)
     print(conn_datas[0].shape)
     print(label_datas.shape)
     print(cflag_datas.shape)
-    print('data/%05d_obj_data.npy  generated'%start_tid)
+    print('data/%s_obj_data.npy  generated'%dataset_spec)

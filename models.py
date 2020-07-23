@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from layers import GraphAttentionLayer, SpGraphAttentionLayer
-from torch_geometric.nn import GCNConv,GATConv, GINConv, global_add_pool
+from torch_geometric.nn import GCNConv,GATConv, GINConv, global_add_pool, GINEConv
 
 
 class GAT(nn.Module):
@@ -285,6 +285,49 @@ class GINWOBN(torch.nn.Module):
         #print('after pool x: ', x.shape)
         x = F.relu(self.fc1(x))
         #x = F.dropout(x, p=0.5, training=self.training)
+        x = self.fc2(x)
+        #print(x.shape)
+        return x
+        #return F.log_softmax(x, dim=-1)
+
+
+
+
+class GINE(torch.nn.Module):
+    def __init__(self, layers=5, vfeat=12, efeat=3, hidden=32, nclass=6):
+        super(GINE, self).__init__()
+
+        self.layers=layers
+        self.convs=nn.ModuleList()
+        self.bns=nn.ModuleList()
+        self.edge_encoders=nn.ModuleList()
+        for i in range(layers):
+            hfunc=nn.Sequential(nn.Linear(hidden, 2 * hidden),
+                                nn.BatchNorm1d(2 * hidden),
+                                nn.ReLU(),
+                                nn.Linear(2 * hidden, hidden),)
+            self.convs.append(GINEConv(hfunc, train_eps=True))
+            self.bns.append(nn.BatchNorm1d(hidden))
+            self.edge_encoders.append(nn.Sequential(nn.Linear(efeat, hidden),
+                                            nn.ReLU(),
+                                            nn.Linear(hidden,hidden),))
+
+        self.fc1 = nn.Linear(hidden, hidden)
+        self.fc2 = nn.Linear(hidden, nclass)
+
+    def forward(self, x, data):
+        #print(x.shape)
+
+        for i in range(self.layers):
+            edge_feat=self.edge_encoders[i](data.edge_attr)
+            x=self.convs(x, data.edge_index, edge_feat)
+            x=F.relu(x)
+            x=self.bns[i](x)
+            #possibly dropout?
+
+
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
         #print(x.shape)
         return x

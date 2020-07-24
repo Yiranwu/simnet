@@ -15,7 +15,7 @@ if __name__ == '__main__':
     parser.add_argument("--data_path", help="folder of data file", type=str, default='data')
     parser.add_argument("--shuffle", action='store_true', default=True)
     parser.add_argument('--normalize', action='store_true', default=True)
-    parser.add_argument('--corrupt', action='store_true', default=True)
+    parser.add_argument('--corrupt', action='store_true', default=False)
     config=parser.parse_args()
     start_tid=config.start_template_id
     end_tid=config.end_template_id
@@ -26,22 +26,24 @@ if __name__ == '__main__':
     corrupt=config.corrupt
     dataset_spec='%05d%s'%(start_tid, '_noise' if corrupt else '')
 
-    obj_datas, conn_datas, label_datas = [], [], []
+    obj_datas, conn_datas, manifold_datas, label_datas = [], [], [], []
     cflag_datas=[]
     for i in range(start_tid, end_tid+1):
         for j in range(num_mods):
             filename = data_path+'/'+('%05d'%i)+':'+('%03d'%j)+'.log'
             print(filename)
-            obj_data, conn_data, label_data, cflag_data = get_data_from_file(filename)
+            obj_data, conn_data, manifold_data, label_data, cflag_data = get_data_from_file(filename)
             obj_datas.append(obj_data)
             #conn_datas.append(conn_data)
             conn_datas = conn_datas + conn_data
+            manifold_datas=manifold_datas+manifold_data
             label_datas.append(label_data)
             cflag_datas.append(cflag_data)
 
     obj_datas=np.concatenate(obj_datas, axis=0)
     scene_num, obj_num = obj_datas.shape[0], obj_datas.shape[1]
     conn_datas=np.array(conn_datas)
+    manifold_datas=np.array(manifold_datas)
     label_datas=np.concatenate(label_datas, axis=0)
     cflag_datas=np.concatenate(cflag_datas, axis=0)
 
@@ -51,7 +53,10 @@ if __name__ == '__main__':
         std = np.std(obj_datas[:,:7], axis=0)
         obj_datas[:,:7] = ((obj_datas[:,:7] - mean) / std)
         obj_datas = obj_datas.reshape([-1, obj_num, 13])
-
+        for i in range(manifold_datas.shape[0]):
+            if manifold_datas[i].shape[0]>0:
+                manifold_datas[i][:,:2]=(manifold_datas[i][:,:2]-mean[1:3])/std[1:3]
+                manifold_datas[i][:,2:]=(manifold_datas[i][:,2:]-mean[1:3])/std[1:3]
     if corrupt:
         py_noise=np.random.normal(scale=0.01, size=(scene_num, obj_num))
         obj_datas[:,:,2] += py_noise
@@ -71,11 +76,13 @@ if __name__ == '__main__':
         np.random.shuffle(idx)
         obj_datas = obj_datas[idx]
         conn_datas = conn_datas[idx]
+        manifold_datas=manifold_datas[idx]
         label_datas = label_datas[idx]
         cflag_datas= cflag_datas[idx]
 
     np.save('data/%s_obj_data.npy'%dataset_spec, obj_datas)
     np.save('data/%s_conn_data.npy'%dataset_spec, conn_datas, allow_pickle=True)
+    np.save('data/%s_manifold_data.npy'%dataset_spec, manifold_datas, allow_pickle=True)
     np.save('data/%s_label_data.npy'%dataset_spec, label_datas)
     np.save('data/%s_cflag_data.npy'%dataset_spec, cflag_datas)
     np.savez('data/%s_mean_std.npz'%dataset_spec, mean=mean, std=std)

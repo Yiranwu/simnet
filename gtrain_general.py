@@ -16,20 +16,18 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import load_data, accuracy
-from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINWOBN
+from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINWOBN, GINE
 from datasets import GDataset, GTestDataset
 
 # Training settings
 parser = argparse.ArgumentParser()
 parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
 parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
-parser.add_argument('--sparse', action='store_true', default=False, help='GAT with sparse version or not.')
 parser.add_argument('--seed', type=int, default=72, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--hidden', type=int, default=32, help='Number of hidden units.')
-parser.add_argument('--nb_heads', type=int, default=8, help='Number of head attentions.')
 parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=100, help='Patience')
@@ -54,31 +52,28 @@ writer = SummaryWriter(log_dir='runs/train_gball')
 #exit()
 # Load data
 #adj, features, labels, idx_train, idx_val, idx_test = load_data()
-nfeat=12
-nembed=32
+vfeat=12
+hidden=32
 # Model and optimizer
-net=GIN(nfeat=nfeat+nembed, nclass=6)
+net=GINE(vfeat=12, hidden=32, nclass=6)
 #net=TestLinear(cin=nfeat+nembed, cout=6)
 model = net.double()
 
-
-obj_encoder = ObjectEncoder(cin=nfeat,cout=nembed).double()
-all_param=list(model.parameters()) + list(obj_encoder.parameters())
+all_param=model.parameters()
 optimizer = optim.Adam(all_param,
                        lr=args.lr,
                        weight_decay=args.weight_decay)
 
 if args.cuda:
     model.cuda()
-    obj_encoder=obj_encoder.cuda()
 
 data_path='/home/yiran/pc_mapping/simnet/data/%s'%dataset_spec
 os.system('rm %sprocessed_data.pt'%data_path)
 os.system('rm %sprocessed_data_test.pt'%data_path)
 #features, adj, labels = Variable(features), Variable(adj), Variable(labels)
-dataset=GDataset(data_path, nfeat=nfeat)
+dataset=GDataset(data_path, nfeat=vfeat, train=True)
 dataloader=DataLoader(dataset, batch_size=batch_size, drop_last=True)
-testset=GTestDataset(data_path, nfeat=nfeat)
+testset=GDataset(data_path, nfeat=vfeat, train=False)
 testloader=DataLoader(testset, batch_size=batch_size, drop_last=True)
 #print('num graph: ', len(dataset))
 #exit()
@@ -107,9 +102,6 @@ def train(epoch):
         #print(data.batch.min())
         #exit()
 
-        obj_feat=obj_encoder(data.x[:,:nfeat])
-        #print(feat_batch.shape)
-        feat_batch=torch.cat([obj_feat, data.x[:,:nfeat]], axis=1)
         #print(feat_batch.shape)
         #exit()
         #print('feat batch: ', feat_batch.shape)
@@ -124,7 +116,7 @@ def train(epoch):
         #print(data.num_graphs)
         #print(data.edge_index.max())
 
-        output=model(feat_batch, data)
+        output=model(data)
         #print(output.shape)
         #print(bound_map.shape)
         #exit()
@@ -132,7 +124,7 @@ def train(epoch):
         #print (data.x.shape)
         #print(output.shape)
         #exit()
-        movable_map=data.x[:,nfeat].bool()
+        movable_map=data.x[:,vfeat].bool()
         masked_output = output[movable_map]
         masked_label = data.y[movable_map]
         #print(output.shape)
@@ -324,7 +316,7 @@ best = args.epochs + 1
 best_epoch = 0
 for epoch in range(args.epochs):
     loss_values.append(train(epoch))
-    eval(epoch)
+    #eval(epoch)
     #torch.save(model.state_dict(), '{}.pkl'.format(epoch))
     #if loss_values[-1] < best:
     #    best = loss_values[-1]

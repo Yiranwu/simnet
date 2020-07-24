@@ -177,6 +177,15 @@ class GAT3(torch.nn.Module):
         x = self.conv3(x, data.edge_index)
         return x
 
+
+class GNet(torch.nn.Module):
+    def __init__(self, vfeat=12, hidden=32):
+        super(GNet, self).__init__()
+        self.obj_encoder = ObjectEncoder(cin=vfeat, cout=hidden)
+    def encode_obj(self, obj):
+        return self.obj_encoder(obj)
+
+
 class GIN(torch.nn.Module):
     def __init__(self, nfeat=12, nclass=6):
         super(GIN, self).__init__()
@@ -290,14 +299,14 @@ class GINWOBN(torch.nn.Module):
         return x
         #return F.log_softmax(x, dim=-1)
 
-
-
-
-class GINE(torch.nn.Module):
-    def __init__(self, layers=5, vfeat=12, efeat=3, hidden=32, nclass=6):
-        super(GINE, self).__init__()
-
+class GINE(GNet):
+    def __init__(self, layers=5, vfeat=12, efeat=4, hidden=32, nclass=6):
+        super(GINE, self).__init__(vfeat, hidden)
         self.layers=layers
+        self.vfeat=vfeat
+        self.efeat=efeat
+        self.hidden=hidden
+        self.nclass=nclass
         self.convs=nn.ModuleList()
         self.bns=nn.ModuleList()
         self.edge_encoders=nn.ModuleList()
@@ -315,12 +324,21 @@ class GINE(torch.nn.Module):
         self.fc1 = nn.Linear(hidden, hidden)
         self.fc2 = nn.Linear(hidden, nclass)
 
-    def forward(self, x, data):
+    def forward(self, data):
         #print(x.shape)
 
+        x=data.x
+        obj_feat=self.encode_obj(x[:,:self.vfeat])
+        #print(feat_batch.shape)
+        x=obj_feat
+        #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
         for i in range(self.layers):
             edge_feat=self.edge_encoders[i](data.edge_attr)
-            x=self.convs(x, data.edge_index, edge_feat)
+            #print(x.shape)
+            #print(data.edge_index.shape)
+            #print(data.edge_attr.shape)
+            #print(edge_feat.shape)
+            x=self.convs[i](x, data.edge_index, edge_feat)
             x=F.relu(x)
             x=self.bns[i](x)
             #possibly dropout?

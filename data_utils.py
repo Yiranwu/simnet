@@ -7,12 +7,15 @@ def get_data_from_string(body_info, contact_info, obj_attr_data, mean, std):
     #print('need to check @gen_dataset.get_data_from_string: split')
 
     data = {'body_info': body_info, 'contact_info': contact_info}
-    print('@get_data_from_string: adding manifold info needed')
-    body_array, conn_array = get_scene_stats(data, obj_attr_data)
+    body_array, conn_array, manifold_array = get_scene_stats(data, obj_attr_data)
 
+    #print('@get_data_from_string: manifold normalization needed')
     body_array[:,:7] = (body_array[:,:7] - mean) / std
+    if manifold_array.shape[0]>0:
+        manifold_array[:,:2]=(manifold_array[:,:2]-mean[1:3])/std[1:3]
+        manifold_array[:,2:]=(manifold_array[:,2:]-mean[1:3])/std[1:3]
     #body_array.reshape([1,-1,13])
-    return body_array, conn_array
+    return body_array, conn_array, manifold_array
 
 def get_data_from_file(filename):
     datas=[json.loads(line) for line in open(filename,'r')]
@@ -24,7 +27,7 @@ def get_data_from_file(filename):
     #print(datas[1])
     #print(get_obj_attr(datas[0], datas[1]))
     obj_attr_data=get_obj_attrs(datas[0], datas[1])
-    print('@get_data_from_file: initial step missing')
+    #print('@get_data_from_file: initial step missing')
     body_array, conn_array, manifold_array = get_scene_stats(datas[2], obj_attr_data)
     #body_array, conn_array = get_scene_stats(datas[2], obj_attr_data)
     #exit()
@@ -36,12 +39,13 @@ def get_data_from_file(filename):
                                                                              obj_attr_data)
         obj_data.append(body_array)
         conn_data.append(conn_array)
+        manifold_data.append(manifold_array)
         #print('body array: ', body_array)
         #print('new body array: ', new_body_array)
         #print(new_body_array-body_array)
         label_data.append(new_body_array - body_array)
         cflag_data.append(0 if conn_array.shape[0]==0 else 1)
-        body_array, conn_array = new_body_array, new_conn_array
+        body_array, conn_array, manifold_array = new_body_array, new_conn_array, new_manifold_array
 
     obj_data = np.array(obj_data)
     #print(len(conn_data))
@@ -49,7 +53,7 @@ def get_data_from_file(filename):
     #conn_data = np.array(conn_data)
     label_data = np.array(label_data)
     cflag_data = np.array(cflag_data)
-    return obj_data, conn_data, label_data, cflag_data
+    return obj_data, conn_data, manifold_data, label_data, cflag_data
 
 def get_obj_attrs(feat_obj, action_obj):
     attrs = []
@@ -146,7 +150,7 @@ def process_contact_info(contact_info, wall_idx):
         nx,ny=info['manifold_normal']
         pts=info['points']
         assert(len(pts)==2)
-        print('@data_utils.process_contact_info: need to tackle differently if #pt=1/2')
+        #print('@data_utils.process_contact_info: need to tackle differently if #pt=1/2')
         if(len(pts)==2):
             p1,p2=pts
             px1,py1=p1
@@ -159,6 +163,7 @@ def process_contact_info(contact_info, wall_idx):
         if b==-1: b=wall_idx
         conn.append([a,b])
         conn.append([b,a])
+        manifold.append([nx,ny, px, py])
         manifold.append([nx,ny, px, py])
     conn=np.array(conn, dtype=np.int64)
     manifold=np.array(manifold)

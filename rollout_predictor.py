@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 #from utils import load_data, accuracy
 from gen_dataset import get_data_from_string, get_obj_attrs
-from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear
+from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINE
 from datasets import GDataset, GTestDataset
 
 class rollout_predictor():
@@ -22,17 +22,14 @@ class rollout_predictor():
         self.nembed=nembed=32
         self.cuda=True
         # Model and optimizer
-        net=GIN(nfeat=nfeat+nembed, nclass=6).double()
+        net=GINE(vfeat=12, hidden=32, nclass=6)
         #net=TestLinear(cin=nfeat+nembed, cout=6)
         model=net.double()
         model.load_state_dict(torch.load(model_path))
-        obj_encoder = ObjectEncoder(cin=nfeat,cout=nembed).double()
         if self.cuda:
             model.cuda()
-            obj_encoder=obj_encoder.cuda()
         model.eval()
         self.model=model
-        self.obj_encoder=obj_encoder
         mean_std=np.load('/home/yiran/pc_mapping/simnet/data/%smean_std.npz'%dataset_spec)
         self.mean=mean_std['mean']
         self.std=mean_std['std']
@@ -41,25 +38,28 @@ class rollout_predictor():
         self.attrs = get_obj_attrs(task_info, action_info)
 
     def __call__(self, body_info, contact_info):
-        obj, conn=get_data_from_string(body_info, contact_info, self.attrs, self.mean, self.std)
+        obj, conn, manifold=get_data_from_string(body_info, contact_info, self.attrs,
+                                                 self.mean, self.std)
         obj=torch.from_numpy(obj)
         if conn.shape[0] == 0:
             conn = conn.reshape([2, 0])
+        if manifold.shape[0] == 0:
+            manifold = manifold.reshape([0,4])
         conn=torch.from_numpy(conn)
-        gdata = Data(x=obj, edge_index=conn)
+        manifold=torch.from_numpy(manifold)
+        gdata = Data(x=obj, edge_index=conn, edge_attr=manifold)
         #data,slices = self.collate([gdata])
         #print(data)
         #print(slices)
         #exit()
-        gdata.batch=torch.tensor([0], dtype=torch.int64)
+
+        #gdata.batch=torch.tensor([0]*obj.shape[0], dtype=torch.int64)
+        #print(gdata.batch)
+        #exit()
         if self.cuda:
-            obj = obj.to('cuda:0')
-            conn = conn.to('cuda:0')
             gdata = gdata.to('cuda:0')
 
-        obj_feat = self.obj_encoder(obj[:, :self.nfeat])
-        feat_batch = torch.cat([obj_feat, obj[:, :self.nfeat]], axis=1)
-        output = self.model(feat_batch, gdata)
+        output = self.model(gdata)
         output += gdata.x[:,:6]
         movable_map = gdata.x[:, self.nfeat].bool()
         output = output[movable_map]#.cpu().numpy()

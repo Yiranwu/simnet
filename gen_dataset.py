@@ -69,7 +69,21 @@ if __name__ == '__main__':
     label_datas = label_datas[:, :, :6]
 
     if normalize:
-        label_datas = label_datas / std[:6]
+        label_datas = label_datas.reshape([-1, 6])
+        mean_label=np.mean(label_datas, axis=0)
+        std_label=np.std(label_datas, axis=0)
+        #mean_label=mean[:6]
+        #std_label=std[:6]
+        #print('-----mean-----')
+        #print(mean_label)
+        #print('-----std-----')
+        #print(std_label)
+        #print('-----max-----')
+        #print(np.max(label_datas,axis=0))
+        #print('-----min-----')
+        #print(np.min(label_datas,axis=0))
+        label_datas = (label_datas-mean_label) / std_label
+        label_datas = label_datas.reshape([-1, obj_num, 6])
 
     if shuffle:
         idx = np.arange(obj_datas.shape[0])
@@ -85,7 +99,8 @@ if __name__ == '__main__':
     np.save('data/%s_manifold_data.npy'%dataset_spec, manifold_datas, allow_pickle=True)
     np.save('data/%s_label_data.npy'%dataset_spec, label_datas)
     np.save('data/%s_cflag_data.npy'%dataset_spec, cflag_datas)
-    np.savez('data/%s_mean_std.npz'%dataset_spec, mean=mean, std=std)
+    np.savez('data/%s_mean_std.npz'%dataset_spec, mean=mean, std=std,
+                                                   mean_label=mean_label, std_label=std_label)
     print(obj_datas.shape)
     print(conn_datas.shape)
     print(conn_datas[0].shape)

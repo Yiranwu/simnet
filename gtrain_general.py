@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import load_data, accuracy
-from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINWOBN, GINE
+from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINWOBN, GINE, GINEWOBN
 from datasets import GDataset, GTestDataset
 
 # Training settings
@@ -27,12 +27,12 @@ parser.add_argument('--seed', type=int, default=72, help='Random seed.')
 parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=32, help='Number of hidden units.')
+parser.add_argument('--hidden', type=int, default=128, help='Number of hidden units.')
 parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
 parser.add_argument('--patience', type=int, default=100, help='Patience')
 parser.add_argument('--batch_size', type=int, default=128)
-parser.add_argument('--exp_name', type=str, default='gin-bn-nocor-5')
+parser.add_argument('--exp_name', type=str, default='gine-nobn-nocor-5')
 #parser.add_argument('--dataset_spec', type=str, default='00001_noise_')
 parser.add_argument('--dataset_spec', type=str, default='00001_')
 
@@ -55,7 +55,7 @@ writer = SummaryWriter(log_dir='runs/train_gball')
 vfeat=12
 hidden=32
 # Model and optimizer
-net=GINE(vfeat=12, hidden=32, nclass=6)
+net=GINEWOBN(vfeat=12, hidden=32, nclass=6)
 #net=TestLinear(cin=nfeat+nembed, cout=6)
 model = net.double()
 
@@ -213,18 +213,13 @@ def eval(epoch):
     loss_val_1, loss_val_2, loss_val_3, loss_val_4, loss_val_5, loss_val_6=0,0,0,0,0,0
 
     for data in testloader:
-        #print (data.batch)
-        #print (data.x)
-        #print (data.edge_index)
-        #print(data.edge_index.max())
-        #print (data.y)
         if(args.cuda):
             data=data.to('cuda:0')
         optimizer.zero_grad()
+        #print(data.batch)
+        #print(data.batch.min())
+        #exit()
 
-        obj_feat=obj_encoder(data.x[:,:nfeat])
-        #print(feat_batch.shape)
-        feat_batch=torch.cat([obj_feat, data.x[:,:nfeat]], axis=1)
         #print(feat_batch.shape)
         #exit()
         #print('feat batch: ', feat_batch.shape)
@@ -239,7 +234,7 @@ def eval(epoch):
         #print(data.num_graphs)
         #print(data.edge_index.max())
 
-        output=model(feat_batch, data)
+        output=model(data)
         #print(output.shape)
         #print(bound_map.shape)
         #exit()
@@ -247,7 +242,7 @@ def eval(epoch):
         #print (data.x.shape)
         #print(output.shape)
         #exit()
-        movable_map=data.x[:,nfeat].bool()
+        movable_map=data.x[:,vfeat].bool()
         masked_output = output[movable_map]
         masked_label = data.y[movable_map]
         #print(output.shape)

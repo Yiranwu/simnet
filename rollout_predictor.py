@@ -33,6 +33,8 @@ class rollout_predictor():
         mean_std=np.load('/home/yiran/pc_mapping/simnet/data/%smean_std.npz'%dataset_spec)
         self.mean=mean_std['mean']
         self.std=mean_std['std']
+        self.mean_label=mean_std['mean_label']
+        self.std_label=mean_std['std_label']
 
     def update_task(self, task_info, action_info):
         self.attrs = get_obj_attrs(task_info, action_info)
@@ -60,14 +62,15 @@ class rollout_predictor():
             gdata = gdata.to('cuda:0')
 
         output = self.model(gdata)
-        output += gdata.x[:,:6]
         movable_map = gdata.x[:, self.nfeat].bool()
-        output = output[movable_map]#.cpu().numpy()
-        output=output.detach().cpu().numpy()
+        output=output[movable_map].detach().cpu().numpy()
+        output=output*self.std_label+self.mean_label
+
         #print(output.shape)
         #print(self.std.shape)
         #exit()
-        output=(output * self.std[:6]) + self.mean[:6]
+        obj_state_np=gdata.x[movable_map][:,:6].detach().cpu().numpy()
+        output+=(obj_state_np*self.std[:6])+ self.mean[:6]
         #obj_attr=get_dict_from_label(label)
         #return obj_attr
         return output, np.where(movable_map.cpu().numpy())[0]

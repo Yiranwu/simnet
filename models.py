@@ -350,3 +350,57 @@ class GINE(GNet):
         #print(x.shape)
         return x
         #return F.log_softmax(x, dim=-1)
+
+
+
+class GINEWOBN(GNet):
+    def __init__(self, layers=5, vfeat=12, efeat=4, hidden=32, nclass=6):
+        super(GINEWOBN, self).__init__(vfeat, hidden)
+        self.layers=layers
+        self.vfeat=vfeat
+        self.efeat=efeat
+        self.hidden=hidden
+        self.nclass=nclass
+        self.convs=nn.ModuleList()
+        self.bns=nn.ModuleList()
+        self.edge_encoders=nn.ModuleList()
+        for i in range(layers):
+            hfunc=nn.Sequential(nn.Linear(hidden, 2 * hidden),
+                                nn.BatchNorm1d(2 * hidden),
+                                nn.ReLU(),
+                                nn.Linear(2 * hidden, hidden),)
+            self.convs.append(GINEConv(hfunc, train_eps=True))
+            self.bns.append(nn.BatchNorm1d(hidden))
+            self.edge_encoders.append(nn.Sequential(nn.Linear(efeat, hidden),
+                                            nn.ReLU(),
+                                            nn.Linear(hidden,hidden),))
+
+        self.fc1 = nn.Linear(hidden, hidden)
+        self.fc2 = nn.Linear(hidden, nclass)
+
+    def forward(self, data):
+        #print(x.shape)
+
+        x=data.x
+        obj_feat=self.encode_obj(x[:,:self.vfeat])
+        #print(feat_batch.shape)
+        x=obj_feat
+        #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
+        for i in range(self.layers):
+            edge_feat=self.edge_encoders[i](data.edge_attr)
+            #print(x.shape)
+            #print(data.edge_index.shape)
+            #print(data.edge_attr.shape)
+            #print(edge_feat.shape)
+            x=self.convs[i](x, data.edge_index, edge_feat)
+            x=F.relu(x)
+            x=self.bns[i](x)
+            #possibly dropout?
+
+
+        x = F.relu(self.fc1(x))
+        #x = F.dropout(x, p=0.5, training=self.training)
+        x = self.fc2(x)
+        #print(x.shape)
+        return x
+        #return F.log_softmax(x, dim=-1)

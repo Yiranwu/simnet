@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 #from utils import load_data, accuracy
 from gen_dataset import get_data_from_string, get_obj_attrs
-from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINE
+from models import *
 from datasets import GDataset, GTestDataset
 
 class rollout_predictor():
@@ -21,7 +21,6 @@ class rollout_predictor():
         self.nfeat=nfeat=12
         self.nembed=nembed=32
         self.cuda=True
-        # Model and optimizer
         net=GINE(vfeat=12, hidden=32, nclass=6)
         #net=TestLinear(cin=nfeat+nembed, cout=6)
         model=net.double()
@@ -66,13 +65,8 @@ class rollout_predictor():
         output=output[movable_map].detach().cpu().numpy()
         output=output*self.std_label+self.mean_label
 
-        #print(output.shape)
-        #print(self.std.shape)
-        #exit()
         obj_state_np=gdata.x[movable_map][:,:6].detach().cpu().numpy()
         output+=(obj_state_np*self.std[:6])+ self.mean[:6]
-        #obj_attr=get_dict_from_label(label)
-        #return obj_attr
         return output, np.where(movable_map.cpu().numpy())[0]
 
 

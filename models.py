@@ -146,12 +146,9 @@ class GIN(torch.nn.Module):
         self.fc2 = nn.Linear(dim, nclass)
 
     def forward(self, x, data):
-        #print(x.shape)
 
         edge_index=data.edge_index
         batch=data.batch
-        #print('net init x: ', x.shape)
-        #exit()
         x = F.relu(self.conv1(x, edge_index))
         x = self.bn1(x)
         x = F.relu(self.conv2(x, edge_index))
@@ -162,15 +159,10 @@ class GIN(torch.nn.Module):
         x = self.bn4(x)
         x = F.relu(self.conv5(x, edge_index))
         x = self.bn5(x)
-        #print('after conv x: ', x.shape)
-        #x = global_add_pool(x, batch)
-        #print('after pool x: ', x.shape)
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
-        #print(x.shape)
         return x
-        #return F.log_softmax(x, dim=-1)
 
 
 class GINWOBN(torch.nn.Module):
@@ -203,12 +195,9 @@ class GINWOBN(torch.nn.Module):
         self.fc2 = nn.Linear(dim, nclass)
 
     def forward(self, x, data):
-        #print(x.shape)
 
         edge_index=data.edge_index
         batch=data.batch
-        #print('net init x: ', x.shape)
-        #exit()
         x = F.relu(self.conv1(x, edge_index))
         #x = self.bn1(x)
         x = F.relu(self.conv2(x, edge_index))
@@ -255,29 +244,20 @@ class GINE(GNet):
         self.fc2 = nn.Linear(hidden, nclass)
 
     def forward(self, data):
-        #print(x.shape)
 
         x=data.x
         obj_feat=self.encode_obj(x[:,:self.vfeat])
-        #print(feat_batch.shape)
         x=obj_feat
         #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
         for i in range(self.layers):
             edge_feat=self.edge_encoders[i](data.edge_attr)
-            #print(x.shape)
-            #print(data.edge_index.shape)
-            #print(data.edge_attr.shape)
-            #print(edge_feat.shape)
             x=self.convs[i](x, data.edge_index, edge_feat)
             x=F.relu(x)
             x=self.bns[i](x)
-            #possibly dropout?
-
 
         x = F.relu(self.fc1(x))
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
-        #print(x.shape)
         return x
         #return F.log_softmax(x, dim=-1)
 
@@ -309,28 +289,19 @@ class GINEWOBN(GNet):
         self.fc2 = nn.Linear(hidden, nclass)
 
     def forward(self, data):
-        #print(x.shape)
 
         x=data.x
         obj_feat=self.encode_obj(x[:,:self.vfeat])
-        #print(feat_batch.shape)
         x=obj_feat
         #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
         for i in range(self.layers):
             edge_feat=self.edge_encoders[i](data.edge_attr)
-            #print(x.shape)
-            #print(data.edge_index.shape)
-            #print(data.edge_attr.shape)
-            #print(edge_feat.shape)
             x=self.convs[i](x, data.edge_index, edge_feat)
             x=F.relu(x)
             x=self.bns[i](x)
-            #possibly dropout?
-
 
         x = F.relu(self.fc1(x))
         #x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
-        #print(x.shape)
         return x
         #return F.log_softmax(x, dim=-1)

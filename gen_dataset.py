@@ -13,7 +13,7 @@ if __name__ == '__main__':
     parser.add_argument("--end_template_id", help="end template id", type=int, default=1)
     parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=100)
     parser.add_argument("--data_path", help="folder of data file", type=str, default='data')
-    parser.add_argument("--shuffle", action='store_true', default=True)
+    parser.add_argument("--shuffle", action='store_true', default=False)
     parser.add_argument('--normalize', action='store_true', default=True)
     parser.add_argument('--corrupt', action='store_true', default=False)
     config=parser.parse_args()

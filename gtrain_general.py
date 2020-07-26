@@ -72,9 +72,9 @@ os.system('rm %sprocessed_data.pt'%data_path)
 os.system('rm %sprocessed_data_test.pt'%data_path)
 #features, adj, labels = Variable(features), Variable(adj), Variable(labels)
 dataset=GDataset(data_path, nfeat=vfeat, train=True)
-dataloader=DataLoader(dataset, batch_size=batch_size, drop_last=True)
-testset=GDataset(data_path, nfeat=vfeat, train=False)
-testloader=DataLoader(testset, batch_size=batch_size, drop_last=True)
+dataloader=DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
+testset=GDataset(data_path, nfeat=vfeat, train=True)
+testloader=DataLoader(testset, batch_size=batch_size, drop_last=True,shuffle=True)
 #print('num graph: ', len(dataset))
 #exit()
 criterion=nn.MSELoss()
@@ -208,14 +208,13 @@ def train(epoch):
 
 def eval(epoch):
     t = time.time()
-    model.train()
+    model.eval()
     loss_val=0
     loss_val_1, loss_val_2, loss_val_3, loss_val_4, loss_val_5, loss_val_6=0,0,0,0,0,0
 
     for data in testloader:
         if(args.cuda):
             data=data.to('cuda:0')
-        optimizer.zero_grad()
         #print(data.batch)
         #print(data.batch.min())
         #exit()
@@ -311,7 +310,7 @@ best = args.epochs + 1
 best_epoch = 0
 for epoch in range(args.epochs):
     loss_values.append(train(epoch))
-    #eval(epoch)
+    eval(epoch)
     #torch.save(model.state_dict(), '{}.pkl'.format(epoch))
     #if loss_values[-1] < best:
     #    best = loss_values[-1]

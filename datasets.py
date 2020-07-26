@@ -203,14 +203,6 @@ class GDataset(InMemoryDataset):
         obj_data=torch.from_numpy(np.load(obj_file))
         conn_data=np.load(conn_file, allow_pickle=True)
         manifold_data=np.load(manifold_file, allow_pickle=True)
-        #print(obj_data.shape)
-        #exit()
-        #print(conn_data.shape)
-        #print(conn_data[0].shape)
-        #print(conn_data[0].dtype)
-        #print(conn_data[0])
-        #exit()
-        #print(obj_data.shape[0])
         label_data=torch.from_numpy(np.load(label_file))
         node_list=range(0,599*80)
         #node_list=range(0,obj_data.shape[0])
@@ -220,10 +212,7 @@ class GDataset(InMemoryDataset):
         #    node_list=range(40000, obj_data.shape[0])
         data_list = []
         for i in node_list:
-            #print(conn_data[i])
-            #print(torch.from_numpy(conn_data[i]))
             obj=obj_data[i].double()
-            #obj=obj_data[i]
             conn=conn_data[i]
             manifold=manifold_data[i]
             if conn.shape[0]==0:
@@ -233,8 +222,6 @@ class GDataset(InMemoryDataset):
             gdata=Data(x=obj, edge_index=torch.from_numpy(conn),
                        y=label_data[i], edge_attr=torch.from_numpy(manifold))
             data_list.append(gdata)
-            #print(gdata)
-        #exit()
         #if self.pre_filter is not None:
         #    data_list = [data for data in data_list if self.pre_filter(data)]
 
@@ -251,12 +238,10 @@ class GTestDataset(InMemoryDataset):
         self.root=root
         self.nfeat=nfeat
         self.train=train
-        #print('GDataset initialized. self.train set.')
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
     def raw_file_names(self):
-        #print('raw_file_names() called.')
         return [self.root+'obj_data.npy',
                 self.root+'conn_data.npy',
                 self.root+'manifold_data.npy',
@@ -264,7 +249,6 @@ class GTestDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        #print('processed_file_names() called.')
         return [self.root+'processed_data_test.pt']
 
     def download(self):
@@ -282,14 +266,6 @@ class GTestDataset(InMemoryDataset):
         obj_data=torch.from_numpy(np.load(obj_file))
         conn_data=np.load(conn_file, allow_pickle=True)
         manifold_data=np.load(manifold_file, allow_pickle=True)
-        #print(obj_data.shape)
-        #exit()
-        #print(conn_data.shape)
-        #print(conn_data[0].shape)
-        #print(conn_data[0].dtype)
-        #print(conn_data[0])
-        #exit()
-        #print(obj_data.shape[0])
         label_data=torch.from_numpy(np.load(label_file))
         node_list=range(599*80,59900)
         #if self.train:
@@ -298,10 +274,7 @@ class GTestDataset(InMemoryDataset):
         #    node_list=range(40000, obj_data.shape[0])
         data_list = []
         for i in node_list:
-            #print(conn_data[i])
-            #print(torch.from_numpy(conn_data[i]))
             obj=obj_data[i].double()
-            #obj=obj_data[i]
             conn=conn_data[i]
             manifold=manifold_data[i]
             if conn.shape[0]==0:
@@ -311,8 +284,6 @@ class GTestDataset(InMemoryDataset):
             gdata=Data(x=obj, edge_index=torch.from_numpy(conn),
                        y=label_data[i], edge_attr=torch.from_numpy(manifold))
             data_list.append(gdata)
-            #print(gdata)
-        #exit()
         #if self.pre_filter is not None:
         #    data_list = [data for data in data_list if self.pre_filter(data)]
 

@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import load_data, accuracy
-from models import BallEncoder, ObjectEncoder, GCN2,GCN5,GAT3,GIN, TestLinear, GINWOBN, GINE, GINEWOBN
+from models import *
 from datasets import GDataset, GTestDataset
 
 # Training settings

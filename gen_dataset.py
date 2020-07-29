@@ -4,11 +4,9 @@ import pickle
 import argparse
 from data_utils import *
 
-if __name__ == '__main__':
+def get_config():
     parser=argparse.ArgumentParser()
-
     #parser.add_argument("--task_id", help="input a specific task id with format xxxxx:xxx", type=str)
-
     parser.add_argument("--start_template_id", help="start template id", type=int, default=1)
     parser.add_argument("--end_template_id", help="end template id", type=int, default=1)
     parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=100)
@@ -17,6 +15,10 @@ if __name__ == '__main__':
     parser.add_argument('--normalize', action='store_true', default=True)
     parser.add_argument('--corrupt', action='store_true', default=False)
     config=parser.parse_args()
+    return config
+
+def generate_dataset():
+    config=get_config()
     start_tid=config.start_template_id
     end_tid=config.end_template_id
     num_mods=config.num_mods
@@ -107,3 +109,7 @@ if __name__ == '__main__':
     print(label_datas.shape)
     print(cflag_datas.shape)
     print('data/%s_obj_data.npy  generated'%dataset_spec)
+
+
+if __name__ == '__main__':
+    generate_dataset()

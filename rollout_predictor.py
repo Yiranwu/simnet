@@ -14,8 +14,7 @@ from models import *
 from datasets import GDataset, GTestDataset
 
 class rollout_predictor():
-    def __init__(self, task_id='00001:000', model_path='gin-5-60.pth', dataset_spec='00001_'):
-        self.task_id=task_id
+    def __init__(self, model_path='gin-5-60.pth', dataset_spec='00001_'):
         self.model_path=model_path
         batch_size=128
         self.nfeat=nfeat=12

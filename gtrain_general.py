@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-
 import os
 import glob
 import time
@@ -12,71 +9,33 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch_geometric.data import DataLoader
-from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 #from utils import load_data, accuracy
 from models import *
 from datasets import GDataset, GTestDataset
 
-# Training settings
-parser = argparse.ArgumentParser()
-parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
-parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
-parser.add_argument('--seed', type=int, default=72, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
-parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=128, help='Number of hidden units.')
-parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
-parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
-parser.add_argument('--patience', type=int, default=100, help='Patience')
-parser.add_argument('--batch_size', type=int, default=128)
-parser.add_argument('--exp_name', type=str, default='gine-nobn-nocor-5')
-#parser.add_argument('--dataset_spec', type=str, default='00001_noise_')
-parser.add_argument('--dataset_spec', type=str, default='00001_')
+def get_config():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
+    parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
+    parser.add_argument('--seed', type=int, default=72, help='Random seed.')
+    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
+    parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
+    parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
+    parser.add_argument('--hidden', type=int, default=128, help='Number of hidden units.')
+    parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
+    parser.add_argument('--patience', type=int, default=100, help='Patience')
+    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--exp_name', type=str, default='gine-nobn-nocor-5')
+    #parser.add_argument('--dataset_spec', type=str, default='00001_noise_')
+    parser.add_argument('--dataset_spec', type=str, default='00001_')
 
-args = parser.parse_args()
-batch_size=args.batch_size
-args.cuda = not args.no_cuda and torch.cuda.is_available()
-exp_name=args.exp_name
-dataset_spec=args.dataset_spec
+    args = parser.parse_args()
+    return args
 
-random.seed(args.seed)
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-if args.cuda:
-    torch.cuda.manual_seed(args.seed)
 
-writer = SummaryWriter(log_dir='runs/train_gball')
-
-vfeat=12
-hidden=32
-net=GINEWOBN(vfeat=12, hidden=32, nclass=6)
-#net=TestLinear(cin=nfeat+nembed, cout=6)
-model = net.double()
-
-all_param=model.parameters()
-optimizer = optim.Adam(all_param,
-                       lr=args.lr,
-                       weight_decay=args.weight_decay)
-
-if args.cuda:
-    model.cuda()
-
-data_path='/home/yiran/pc_mapping/simnet/data/%s'%dataset_spec
-os.system('rm %sprocessed_data.pt'%data_path)
-os.system('rm %sprocessed_data_test.pt'%data_path)
-dataset=GDataset(data_path, nfeat=vfeat, train=True)
-dataloader=DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
-testset=GDataset(data_path, nfeat=vfeat, train=True)
-testloader=DataLoader(testset, batch_size=batch_size, drop_last=True,shuffle=True)
-criterion=nn.MSELoss()
-criterion_sum=nn.MSELoss(reduction='sum')
-#print('train len: ', len(dataloader))
-#print('test len: ', len(testloader))
-
-def train(epoch):
+def train(args, epoch, model, dataloader, optimizer, vfeat, criterion, writer):
     t = time.time()
     model.train()
     loss_val=0
@@ -129,7 +88,7 @@ def train(epoch):
     return loss_val
 
 
-def eval(epoch):
+def eval(args, epoch, model, testloader, vfeat, criterion, writer):
     t = time.time()
     model.eval()
     loss_val=0
@@ -188,34 +147,80 @@ def eval(epoch):
 
     return loss_val
 
-# Train model
-t_total = time.time()
-loss_values = []
-bad_counter = 0
-best = args.epochs + 1
-best_epoch = 0
-for epoch in range(args.epochs):
-    loss_values.append(train(epoch))
-    eval(epoch)
-    #torch.save(model.state_dict(), '{}.pkl'.format(epoch))
-    #if loss_values[-1] < best:
-    #    best = loss_values[-1]
-    #    best_epoch = epoch
-    #    bad_counter = 0
-    #else:
-    #    bad_counter += 1
 
-    #if bad_counter == args.patience:
-    #    break
+def gtrain(exp_name, epochs):
+    args=get_config()
+    args.exp_name=exp_name
+    args.epochs=epochs
+    batch_size = args.batch_size
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    dataset_spec = args.dataset_spec
 
-    #files = glob.glob('*.pkl')
-    #for file in files:
-    #    epoch_nb = int(file.split('.')[0])
-    #    if epoch_nb < best_epoch:
-    #        os.remove(file)
-torch.save(model.state_dict(), '%s.pth'%exp_name)
-files = glob.glob('*.pkl')
-for file in files:
-    epoch_nb = int(file.split('.')[0])
-    if epoch_nb > best_epoch:
-        os.remove(file)
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    if args.cuda:
+        torch.cuda.manual_seed(args.seed)
+
+    writer = SummaryWriter(log_dir='runs/train_gball')
+
+    vfeat = 12
+    hidden = 32
+    net = GINEWOBN(vfeat=12, hidden=32, nclass=6)
+    # net=TestLinear(cin=nfeat+nembed, cout=6)
+    model = net.double()
+
+    all_param = model.parameters()
+    optimizer = optim.Adam(all_param,
+                           lr=args.lr,
+                           weight_decay=args.weight_decay)
+
+    if args.cuda:
+        model.cuda()
+
+    data_path = '/home/yiran/pc_mapping/simnet/data/%s' % dataset_spec
+    os.system('rm %sprocessed_data.pt' % data_path)
+    os.system('rm %sprocessed_data_test.pt' % data_path)
+    dataset = GDataset(data_path, nfeat=vfeat, train=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
+    testset = GDataset(data_path, nfeat=vfeat, train=True)
+    testloader = DataLoader(testset, batch_size=batch_size, drop_last=True, shuffle=True)
+    criterion = nn.MSELoss()
+    criterion_sum = nn.MSELoss(reduction='sum')
+    # print('train len: ', len(dataloader))
+    # print('test len: ', len(testloader))
+    # Train model
+    t_total = time.time()
+    loss_values = []
+    bad_counter = 0
+    best = args.epochs + 1
+    best_epoch = 0
+    for epoch in range(args.epochs):
+        # args, epoch, model, dataloader, optimizer, vfeat, criterion, writer
+        loss_values.append(train(args, epoch, model, dataloader, optimizer, vfeat, criterion, writer))
+        eval(args, epoch, model, testloader, vfeat, criterion, writer)
+        #torch.save(model.state_dict(), '{}.pkl'.format(epoch))
+        #if loss_values[-1] < best:
+        #    best = loss_values[-1]
+        #    best_epoch = epoch
+        #    bad_counter = 0
+        #else:
+        #    bad_counter += 1
+
+        #if bad_counter == args.patience:
+        #    break
+
+        #files = glob.glob('*.pkl')
+        #for file in files:
+        #    epoch_nb = int(file.split('.')[0])
+        #    if epoch_nb < best_epoch:
+        #        os.remove(file)
+    dir=os.path.dirname(__file__)
+    print(os.getcwd())
+    torch.save(model.state_dict(), dir+'/saved_models/%s.pth'%exp_name)
+    print('saved to'+ (dir+'/saved_models/%s.pth'%exp_name))
+    files = glob.glob('*.pkl')
+    for file in files:
+        epoch_nb = int(file.split('.')[0])
+        if epoch_nb > best_epoch:
+            os.remove(file)

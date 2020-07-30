@@ -14,14 +14,14 @@ class GDataset(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return [self.root+'obj_data.npy',
-                self.root+'conn_data.npy',
-                self.root+'manifold_data.npy',
-                self.root+'label_data.npy']
+        return [self.root+'/obj_data.npy',
+                self.root+'/conn_data.npy',
+                self.root+'/manifold_data.npy',
+                self.root+'/label_data.npy']
 
     @property
     def processed_file_names(self):
-        return [self.root+'processed_data.pt']
+        return [self.root+'/processed_data.pt']
 
     def download(self):
         pass
@@ -38,7 +38,7 @@ class GDataset(InMemoryDataset):
         conn_data=np.load(conn_file, allow_pickle=True)
         manifold_data=np.load(manifold_file, allow_pickle=True)
         label_data=torch.from_numpy(np.load(label_file))
-        node_list=range(0,599*80)
+        node_list=range(0,int(obj_data.shape[0]*0.8))
         #node_list=range(0,obj_data.shape[0])
         #if self.train:
         #    node_list=range(0,40000)
@@ -76,14 +76,14 @@ class GTestDataset(InMemoryDataset):
 
     @property
     def raw_file_names(self):
-        return [self.root+'obj_data.npy',
-                self.root+'conn_data.npy',
-                self.root+'manifold_data.npy',
-                self.root+'label_data.npy']
+        return [self.root+'/obj_data.npy',
+                self.root+'/conn_data.npy',
+                self.root+'/manifold_data.npy',
+                self.root+'/label_data.npy']
 
     @property
     def processed_file_names(self):
-        return [self.root+'processed_data_test.pt']
+        return [self.root+'/processed_data_test.pt']
 
     def download(self):
         pass
@@ -101,7 +101,7 @@ class GTestDataset(InMemoryDataset):
         conn_data=np.load(conn_file, allow_pickle=True)
         manifold_data=np.load(manifold_file, allow_pickle=True)
         label_data=torch.from_numpy(np.load(label_file))
-        node_list=range(599*80,59900)
+        node_list=range(int(obj_data.shape[0]*0.8),obj_data.shape[0])
         #if self.train:
         #    node_list=range(0,40000)
         #else:

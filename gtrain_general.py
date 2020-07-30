@@ -18,18 +18,21 @@ from datasets import GDataset, GTestDataset
 def get_config():
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
-    parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
+    #parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
     parser.add_argument('--seed', type=int, default=72, help='Random seed.')
     parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
     parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
     parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
     parser.add_argument('--hidden', type=int, default=128, help='Number of hidden units.')
-    parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
-    parser.add_argument('--patience', type=int, default=100, help='Patience')
+    #parser.add_argument('--dropout', type=float, default=0.6, help='Dropout rate (1 - keep probability).')
+    #parser.add_argument('--patience', type=int, default=100, help='Patience')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--exp_name', type=str, default='gine-nobn-nocor-5')
     #parser.add_argument('--dataset_spec', type=str, default='00001_noise_')
-    parser.add_argument('--dataset_spec', type=str, default='00001_')
+    parser.add_argument('--dataset_name', type=str, default='00001_')
+    parser.add_argument('--eval', action='store_true', default=False)
+    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--model_name', type=str, default='gine')
 
     args = parser.parse_args()
     return args
@@ -44,7 +47,7 @@ def train(args, epoch, model, dataloader, optimizer, vfeat, criterion, writer):
     ccnt_val, cnt_val=0,0
     for data in dataloader:
         if(args.cuda):
-            data=data.to('cuda:0')
+            data=data.to(args.device)
         optimizer.zero_grad()
         output=model(data)
         movable_map=data.x[:,vfeat].bool()
@@ -96,7 +99,7 @@ def eval(args, epoch, model, testloader, vfeat, criterion, writer):
 
     for data in testloader:
         if(args.cuda):
-            data=data.to('cuda:0')
+            data=data.to(args.device)
         output=model(data)
         movable_map=data.x[:,vfeat].bool()
         masked_output = output[movable_map]
@@ -147,14 +150,36 @@ def eval(args, epoch, model, testloader, vfeat, criterion, writer):
 
     return loss_val
 
+def get_exp_name(args):
+    return '%s_%sep%d_lr%f_h%d_%s'%(args.model_name,'ev_' if args.eval else 'noev_',
+                                      args.epochs, args.lr,
+                                      args.hidden, args.dataset_name)
 
-def gtrain(exp_name, epochs):
+def get_model_by_name(name):
+    if name=='gine':
+        return GINE(vfeat=12, hidden=32, nclass=6)
+    elif name=='ginewobn':
+        return GINEWOBN(vfeat=12, hidden=32, nclass=6)
+    else:
+        print('unrecognized model name!')
+        exit()
+
+def gtrain(model_name, dataset_name, epochs, device, name_only=False):
     args=get_config()
-    args.exp_name=exp_name
+    args.dataset_name=dataset_name
     args.epochs=epochs
+    args.device=device
+    args.model_name=model_name
     batch_size = args.batch_size
     args.cuda = not args.no_cuda and torch.cuda.is_available()
-    dataset_spec = args.dataset_spec
+
+    exp_name=get_exp_name(args)
+    if name_only:
+        return exp_name
+    root_dir=os.path.dirname(__file__)
+    model_path=root_dir+'/saved_models/%s.pth'%exp_name
+    #if os.path.exists(model_path):
+    #    return exp_name
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -166,7 +191,8 @@ def gtrain(exp_name, epochs):
 
     vfeat = 12
     hidden = 32
-    net = GINEWOBN(vfeat=12, hidden=32, nclass=6)
+    net = get_model_by_name(model_name)
+    #net = GINE(vfeat=12, hidden=32, nclass=6)
     # net=TestLinear(cin=nfeat+nembed, cout=6)
     model = net.double()
 
@@ -176,15 +202,17 @@ def gtrain(exp_name, epochs):
                            weight_decay=args.weight_decay)
 
     if args.cuda:
-        model.cuda()
+        model.to(device)
 
-    data_path = '/home/yiran/pc_mapping/simnet/data/%s' % dataset_spec
-    os.system('rm %sprocessed_data.pt' % data_path)
-    os.system('rm %sprocessed_data_test.pt' % data_path)
+    data_path = '/home/yiran/pc_mapping/simnet/dataset/%s' % dataset_name
+
+    #os.system('rm %s/processed_data.pt' % data_path)
+    #os.system('rm %s/processed_data_test.pt' % data_path)
     dataset = GDataset(data_path, nfeat=vfeat, train=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
-    testset = GDataset(data_path, nfeat=vfeat, train=True)
-    testloader = DataLoader(testset, batch_size=batch_size, drop_last=True, shuffle=True)
+    if args.eval:
+        testset = GTestDataset(data_path, nfeat=vfeat, train=True)
+        testloader = DataLoader(testset, batch_size=batch_size, drop_last=True, shuffle=True)
     criterion = nn.MSELoss()
     criterion_sum = nn.MSELoss(reduction='sum')
     # print('train len: ', len(dataloader))
@@ -198,7 +226,8 @@ def gtrain(exp_name, epochs):
     for epoch in range(args.epochs):
         # args, epoch, model, dataloader, optimizer, vfeat, criterion, writer
         loss_values.append(train(args, epoch, model, dataloader, optimizer, vfeat, criterion, writer))
-        eval(args, epoch, model, testloader, vfeat, criterion, writer)
+        if args.eval:
+            eval(args, epoch, model, testloader, vfeat, criterion, writer)
         #torch.save(model.state_dict(), '{}.pkl'.format(epoch))
         #if loss_values[-1] < best:
         #    best = loss_values[-1]
@@ -216,11 +245,11 @@ def gtrain(exp_name, epochs):
         #    if epoch_nb < best_epoch:
         #        os.remove(file)
     dir=os.path.dirname(__file__)
-    print(os.getcwd())
-    torch.save(model.state_dict(), dir+'/saved_models/%s.pth'%exp_name)
-    print('saved to'+ (dir+'/saved_models/%s.pth'%exp_name))
+    torch.save(model.state_dict(), model_path)
+    print('saved to'+ model_path)
     files = glob.glob('*.pkl')
     for file in files:
         epoch_nb = int(file.split('.')[0])
         if epoch_nb > best_epoch:
             os.remove(file)
+    return exp_name

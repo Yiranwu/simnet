@@ -2,6 +2,7 @@ import json
 import numpy as np
 import pickle
 import argparse
+import os
 from data_utils import *
 
 def get_config():
@@ -10,23 +11,37 @@ def get_config():
     parser.add_argument("--start_template_id", help="start template id", type=int, default=1)
     parser.add_argument("--end_template_id", help="end template id", type=int, default=1)
     parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=100)
-    parser.add_argument("--data_path", help="folder of data file", type=str, default='data')
+    parser.add_argument("--data_path", help="folder of log file", type=str, default='box2d_data')
     parser.add_argument("--shuffle", action='store_true', default=False)
     parser.add_argument('--normalize', action='store_true', default=True)
     parser.add_argument('--corrupt', action='store_true', default=False)
     config=parser.parse_args()
     return config
 
-def generate_dataset():
+def get_dataset_name(config):
+    return '%d-%dx%d%s'%(config.start_template_id, config.end_template_id, config.num_mods,
+                          '_corr' if config.corrupt else '')
+
+def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, name_only=False):
     config=get_config()
-    start_tid=config.start_template_id
-    end_tid=config.end_template_id
-    num_mods=config.num_mods
-    data_path=config.data_path
+    config.start_template_id=start_tid
+    config.end_template_id=end_tid
+    config.num_mods=num_mods
+    config.data_path='box2d_data'+'/'+raw_dataset_name
+    dataset_name=get_dataset_name(config)
+    if name_only:
+        return dataset_name
+
+    data_dir='/home/yiran/pc_mapping/GenBox2D/src/main/python'
+    data_path=data_dir + '/' + config.data_path
+    dataset_dir='/home/yiran/pc_mapping/simnet'
+    dataset_path=dataset_dir + '/dataset/%s'%dataset_name
+    if not os.path.exists(dataset_path):
+        return dataset_name
     normalize=config.normalize
     shuffle=config.shuffle
     corrupt=config.corrupt
-    dataset_spec='%05d%s'%(start_tid, '_noise' if corrupt else '')
+    #dataset_name='%05d%s'%(start_tid, '_noise' if corrupt else '')
 
     obj_datas, conn_datas, manifold_datas, label_datas = [], [], [], []
     cflag_datas=[]
@@ -96,20 +111,24 @@ def generate_dataset():
         label_datas = label_datas[idx]
         cflag_datas= cflag_datas[idx]
 
-    np.save('data/%s_obj_data.npy'%dataset_spec, obj_datas)
-    np.save('data/%s_conn_data.npy'%dataset_spec, conn_datas, allow_pickle=True)
-    np.save('data/%s_manifold_data.npy'%dataset_spec, manifold_datas, allow_pickle=True)
-    np.save('data/%s_label_data.npy'%dataset_spec, label_datas)
-    np.save('data/%s_cflag_data.npy'%dataset_spec, cflag_datas)
-    np.savez('data/%s_mean_std.npz'%dataset_spec, mean=mean, std=std,
-                                                   mean_label=mean_label, std_label=std_label)
+    if not os.path.exists(dataset_path):
+        os.mkdir(dataset_path)
+    #print('saving at %s/*data'%data_path)
+    np.save('%s/obj_data.npy'%dataset_path, obj_datas)
+    np.save('%s/conn_data.npy'%dataset_path, conn_datas, allow_pickle=True)
+    np.save('%s/manifold_data.npy'%dataset_path, manifold_datas, allow_pickle=True)
+    np.save('%s/label_data.npy'%dataset_path, label_datas)
+    np.save('%s/cflag_data.npy'%dataset_path, cflag_datas)
+    np.savez('%s/mean_std.npz'%dataset_path, mean=mean, std=std,
+                                             mean_label=mean_label, std_label=std_label)
     print(obj_datas.shape)
     print(conn_datas.shape)
     print(conn_datas[0].shape)
     print(label_datas.shape)
     print(cflag_datas.shape)
-    print('data/%s_obj_data.npy  generated'%dataset_spec)
+    print('%s/obj_data.npy  generated'%dataset_path)
+    return dataset_name
 
 
 if __name__ == '__main__':
-    generate_dataset()
+    generate_dataset(1,1,100)

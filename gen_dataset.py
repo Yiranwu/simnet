@@ -22,7 +22,7 @@ def get_dataset_name(config):
     return '%d-%dx%d%s'%(config.start_template_id, config.end_template_id, config.num_mods,
                           '_corr' if config.corrupt else '')
 
-def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, name_only=False):
+def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, task_ids, name_only=False):
     config=get_config()
     config.start_template_id=start_tid
     config.end_template_id=end_tid
@@ -37,6 +37,9 @@ def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, name_only=Fal
     dataset_dir='/home/yiran/pc_mapping/simnet'
     dataset_path=dataset_dir + '/dataset/%s'%dataset_name
     if not os.path.exists(dataset_path):
+        os.mkdir(dataset_path)
+    else:
+        print('dataset npy detected, skipping')
         return dataset_name
     normalize=config.normalize
     shuffle=config.shuffle
@@ -45,6 +48,31 @@ def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, name_only=Fal
 
     obj_datas, conn_datas, manifold_datas, label_datas = [], [], [], []
     cflag_datas=[]
+    '''
+    max_obj_size=0
+    for i in range(25):
+        filename = data_path+'/'+task_ids[i*100]+'.log'
+
+        objn=get_obj_num_from_file(filename)
+        print(i, objn)
+
+        if(objn>max_obj_size):
+            max_obj_size=objn
+    '''
+    for task_id in task_ids:
+        filename = data_path+'/'+task_id+'.log'
+        obj_data, conn_data, manifold_data, label_data, cflag_data = get_data_from_file(filename)
+        obj_data, label_data = get_padded(obj_data, label_data,11)
+        # obj_data shape: timestep x numobj x stats_channel 599 x * x 13
+        # label_data: timestep x numobj x label_channel     599 x * x 13
+        # cflag_data: timestep x numobj                     599
+        obj_datas.append(obj_data)
+        #conn_datas.append(conn_data)
+        conn_datas = conn_datas + conn_data
+        manifold_datas=manifold_datas+manifold_data
+        label_datas.append(label_data)
+        cflag_datas.append(cflag_data)
+    '''
     for i in range(start_tid, end_tid+1):
         for j in range(num_mods):
             filename = data_path+'/'+('%05d'%i)+':'+('%03d'%j)+'.log'
@@ -56,6 +84,7 @@ def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, name_only=Fal
             manifold_datas=manifold_datas+manifold_data
             label_datas.append(label_data)
             cflag_datas.append(cflag_data)
+    '''
 
     obj_datas=np.concatenate(obj_datas, axis=0)
     scene_num, obj_num = obj_datas.shape[0], obj_datas.shape[1]
@@ -131,4 +160,4 @@ def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, name_only=Fal
 
 
 if __name__ == '__main__':
-    generate_dataset(1,1,100)
+    generate_dataset(1,5,100, raw_dataset_name='1-5x100')

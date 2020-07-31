@@ -30,7 +30,7 @@ def get_config():
     parser.add_argument('--exp_name', type=str, default='gine-nobn-nocor-5')
     #parser.add_argument('--dataset_spec', type=str, default='00001_noise_')
     parser.add_argument('--dataset_name', type=str, default='00001_')
-    parser.add_argument('--eval', action='store_true', default=False)
+    parser.add_argument('--eval', action='store_true', default=True)
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--model_name', type=str, default='gine')
 
@@ -211,7 +211,7 @@ def gtrain(model_name, dataset_name, epochs, device, name_only=False):
     dataset = GDataset(data_path, nfeat=vfeat, train=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
     if args.eval:
-        testset = GTestDataset(data_path, nfeat=vfeat, train=True)
+        testset = GDataset(data_path, nfeat=vfeat, train=False)
         testloader = DataLoader(testset, batch_size=batch_size, drop_last=True, shuffle=True)
     criterion = nn.MSELoss()
     criterion_sum = nn.MSELoss(reduction='sum')
@@ -244,6 +244,8 @@ def gtrain(model_name, dataset_name, epochs, device, name_only=False):
         #    epoch_nb = int(file.split('.')[0])
         #    if epoch_nb < best_epoch:
         #        os.remove(file)
+        if(epoch%5==0):
+            torch.save(model.state_dict(), root_dir + '/saved_models/%s-ep%d.pth' % (exp_name,epoch))
     dir=os.path.dirname(__file__)
     torch.save(model.state_dict(), model_path)
     print('saved to'+ model_path)

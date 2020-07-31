@@ -6,10 +6,10 @@ from torch_geometric.data import InMemoryDataset, Data
 
 class GDataset(InMemoryDataset):
     def __init__(self, root, nfeat, transform=None, pre_transform=None, train=True):
+        self.train=train
         super(GDataset, self).__init__(root, transform, pre_transform)
         self.root=root
         self.nfeat=nfeat
-        self.train=train
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property
@@ -38,12 +38,12 @@ class GDataset(InMemoryDataset):
         conn_data=np.load(conn_file, allow_pickle=True)
         manifold_data=np.load(manifold_file, allow_pickle=True)
         label_data=torch.from_numpy(np.load(label_file))
-        node_list=range(0,int(obj_data.shape[0]*0.8))
+        #node_list=range(0,int(obj_data.shape[0]*0.8))
         #node_list=range(0,obj_data.shape[0])
-        #if self.train:
-        #    node_list=range(0,40000)
-        #else:
-        #    node_list=range(40000, obj_data.shape[0])
+        if self.train:
+            node_list=range(0,int(obj_data.shape[0]*0.8))
+        else:
+            node_list=range(int(obj_data.shape[0]*0.8), obj_data.shape[0])
         data_list = []
         for i in node_list:
             obj=obj_data[i].double()
@@ -68,10 +68,10 @@ class GDataset(InMemoryDataset):
 
 class GTestDataset(InMemoryDataset):
     def __init__(self, root, nfeat, transform=None, pre_transform=None, train=True):
+        self.train=train
         super(GTestDataset, self).__init__(root, transform, pre_transform)
         self.root=root
         self.nfeat=nfeat
-        self.train=train
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     @property

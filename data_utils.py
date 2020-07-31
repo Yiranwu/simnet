@@ -37,6 +37,28 @@ def get_data_from_file(filename):
     cflag_data = np.array(cflag_data)
     return obj_data, conn_data, manifold_data, label_data, cflag_data
 
+def get_padded(obj_data,label_data, pad_num):
+    obj_pad=np.zeros([599, pad_num-obj_data.shape[1], 13])
+    obj_pad[11]=1
+
+    obj_padded=np.concatenate([obj_data, obj_pad], axis=1)
+    label_padded=np.concatenate([label_data, obj_pad], axis=1)
+    return obj_padded, label_padded
+
+
+
+
+def get_obj_num_from_file(filename):
+    datas=[json.loads(line) for line in open(filename,'r')]
+    timestep=600
+
+    obj_data, conn_data, manifold_data, label_data = [], [], [], []
+    cflag_data=[]
+    obj_attr_data=get_obj_attrs(datas[0], datas[1])
+    body_array, conn_array, manifold_array = get_scene_stats(datas[2], obj_attr_data)
+    return body_array.shape[0]
+
+
 def get_obj_attrs(feat_obj, action_obj):
     attrs = []
     for obj in feat_obj['featurized_objects']:

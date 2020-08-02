@@ -168,7 +168,7 @@ def get_model_by_name(name):
 def gtrain(config):
     #args=get_config()
     batch_size = config.batch_size
-    cuda = not config.no_cuda and torch.cuda.is_available()
+    config.cuda = not config.no_cuda and torch.cuda.is_available()
 
     exp_name=get_exp_name(config)
     root_dir=os.path.dirname(__file__)

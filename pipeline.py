@@ -13,11 +13,11 @@ def get_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("--start_template_id", help="start template id", type=int, default=1)
     parser.add_argument("--end_template_id", help="end template id", type=int, default=1)
-    parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=100)
+    parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=5)
     parser.add_argument('--exp_name', type=str, default='gine')
     parser.add_argument('--dataset_name', type=str, default='t1')
     parser.add_argument('--no_train', action='store_true', default=False)
-    parser.add_argument('--clear_box2d_data', action='store_true', default=False)
+    parser.add_argument('--clear_box2d_data', action='store_true', default=True)
     parser.add_argument('--clear_npy_data', action='store_true', default=True)
     parser.add_argument('--clear_nn', action='store_true', default=True)
     parser.add_argument('--device', type=str, default='cuda:1')
@@ -25,6 +25,7 @@ def get_config():
 
     # box2d_simulate args
 
+    parser.add_argument("--task_id", help="input a specific task id with format xxxxx:xxx", type=str)
     #parser.add_argument("--start_template_id", help="start template id", type=int, default=0)
     #parser.add_argument("--end_template_id", help="end template id", type=int, default=0)
     #parser.add_argument("--num_mods", help="number of mods for each template", type=int, default=1)
@@ -34,6 +35,8 @@ def get_config():
     parser.add_argument("--no_actions", help="run tasks without actions (default is different actions)", action="store_true", default=False)
     parser.add_argument("--same_actions", help="run tasks with a unique action for all tasks (default is multdifferentiple actions)", action="store_true", default=False)
     parser.add_argument("--seed", help="random seed to selection actions", type=int, default=1)
+
+    parser.add_argument("-i", help="enable the interactive/gui mode", action="store_true", default=False)
 
     parser.add_argument("--frequency", help="frequency for box2d steps", type=int, default=60)
     parser.add_argument("--total_steps", help="total sampling steps", type=int, default=600)
@@ -55,8 +58,8 @@ def get_config():
     # training args
 
     parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
-    parser.add_argument('--seed', type=int, default=72, help='Random seed.')
-    parser.add_argument('--epochs', type=int, default=30, help='Number of epochs to train.')
+    #parser.add_argument('--seed', type=int, default=72, help='Random seed.')
+    parser.add_argument('--epochs', type=int, default=1, help='Number of epochs to train.')
     parser.add_argument('--lr', type=float, default=0.001, help='Initial learning rate.')
     parser.add_argument('--weight_decay', type=float, default=5e-4, help='Weight decay (L2 loss on parameters).')
     parser.add_argument('--hidden', type=int, default=128, help='Number of hidden units.')
@@ -64,7 +67,7 @@ def get_config():
     #parser.add_argument('--exp_name', type=str, default='gine-nobn-nocor-5')
     #parser.add_argument('--dataset_name', type=str, default='00001_')
     parser.add_argument('--eval', action='store_true', default=True)
-    parser.add_argument('--device', type=str, default='cuda:0')
+    #parser.add_argument('--device', type=str, default='cuda:0')
     #parser.add_argument('--model_name', type=str, default='gine')
 
     # rollout args
@@ -91,7 +94,7 @@ def get_config():
 
 
 def run_box2d_simulate(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     raw_dataset_name=get_raw_dataset_name(config)
     config.raw_dataset_name=raw_dataset_name
@@ -103,7 +106,7 @@ def run_box2d_simulate(config, **kwargs):
     config.task_ids=task_ids
 
 def run_datagen(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     for name, val in kwargs.items():
         setattr(config, name, val)
@@ -112,36 +115,33 @@ def run_datagen(config, **kwargs):
     config.dataset_name=dataset_name
 
 def run_data_related(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     run_box2d_simulate(config, **kwargs)
     run_datagen(config, **kwargs)
 
 def run_gtrain(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     exp_name = gtrain(config)
     config.exp_name=exp_name
 
 def run_rollout(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     config.log_path=config.exp_name
     simulate(config)
 
 def run_compare(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     compare(config)
 
 def run_eval(config, **kwargs):
-    if not config is None:
+    if config is None:
         config=get_config()
     run_rollout(config, **kwargs)
     run_compare(config, **kwargs)
-
-
-
 
 
 def main():
@@ -163,7 +163,7 @@ def main():
     #config.dataset_name=dataset_name
     run_data_related(config)
     run_gtrain(config)
-    run_compare(config)
+    run_eval(config)
     #exp_name = gtrain(config.model_name, dataset_name, epochs=40, device=device, clear=clear_nn)
     #config.exp_name=exp_name
     #print('dataset name: ',dataset_name)

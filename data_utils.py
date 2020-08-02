@@ -3,6 +3,9 @@ import numpy as np
 import pickle
 import argparse
 
+def get_raw_dataset_name(config):
+    return '%d-%dx%d'%(config.start_template_id, config.end_template_id, config.num_mods)
+
 def get_data_from_string(body_info, contact_info, obj_attr_data, mean, std):
 
     data = {'body_info': body_info, 'contact_info': contact_info}

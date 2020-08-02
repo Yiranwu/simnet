@@ -15,6 +15,7 @@ def get_config():
     parser.add_argument("--shuffle", action='store_true', default=False)
     parser.add_argument('--normalize', action='store_true', default=True)
     parser.add_argument('--corrupt', action='store_true', default=False)
+
     config=parser.parse_args()
     return config
 
@@ -22,20 +23,17 @@ def get_dataset_name(config):
     return '%d-%dx%d%s'%(config.start_template_id, config.end_template_id, config.num_mods,
                           '_corr' if config.corrupt else '')
 
-def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, task_ids, name_only=False):
-    config=get_config()
-    config.start_template_id=start_tid
-    config.end_template_id=end_tid
-    config.num_mods=num_mods
-    config.data_path='box2d_data'+'/'+raw_dataset_name
+#def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, task_ids, clear=False):
+def generate_dataset(config):
     dataset_name=get_dataset_name(config)
-    if name_only:
-        return dataset_name
 
     data_dir='/home/yiran/pc_mapping/GenBox2D/src/main/python'
     data_path=data_dir + '/' + config.data_path
     dataset_dir='/home/yiran/pc_mapping/simnet'
     dataset_path=dataset_dir + '/dataset/%s'%dataset_name
+
+    if config.clear_npy_data:
+        os.system('rm -r %s'%dataset_path)
     if not os.path.exists(dataset_path):
         os.mkdir(dataset_path)
     else:
@@ -59,7 +57,7 @@ def generate_dataset(start_tid,end_tid,num_mods, raw_dataset_name, task_ids, nam
         if(objn>max_obj_size):
             max_obj_size=objn
     '''
-    for task_id in task_ids:
+    for task_id in config.task_ids:
         filename = data_path+'/'+task_id+'.log'
         obj_data, conn_data, manifold_data, label_data, cflag_data = get_data_from_file(filename)
         obj_data, label_data = get_padded(obj_data, label_data,11)

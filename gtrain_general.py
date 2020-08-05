@@ -11,9 +11,11 @@ import torch.optim as optim
 from torch_geometric.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+
 #from utils import load_data, accuracy
 from models import *
-from datasets import GDataset, GTestDataset
+from data_utils import get_dataset_name
+from datasets import GDataset
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -150,10 +152,6 @@ def eval(config, epoch, model, testloader, vfeat, criterion, writer):
 
     return loss_val
 
-def get_exp_name(config):
-    return '%s_%sep%d_lr%f_h%d_%s'%(config.model_name,'ev_' if config.eval else 'noev_',
-                                      config.epochs, config.lr,
-                                      config.hidden, config.dataset_name)
 
 def get_model_by_name(name):
     if name=='gine':
@@ -170,14 +168,10 @@ def gtrain(config):
     batch_size = config.batch_size
     config.cuda = not config.no_cuda and torch.cuda.is_available()
 
-    exp_name=get_exp_name(config)
-    root_dir=os.path.dirname(__file__)
-    model_path=root_dir+'/saved_models/%s.pth'%exp_name
-
     if config.clear_nn:
-        os.system('rm -r %s'%model_path)
-    if os.path.exists(model_path):
-        return exp_name
+        os.system('rm -r %s'%config.model_path)
+    if os.path.exists(config.model_path):
+        return
 
     random.seed(config.seed)
     np.random.seed(config.seed)
@@ -202,15 +196,30 @@ def gtrain(config):
     if config.cuda:
         model.to(config.device)
 
-    data_path = '/home/yiran/pc_mapping/simnet/dataset/%s' % config.dataset_name
+    if config.clear_graph_data:
+        os.system('rm -r %s'%config.data_path)
+    if not os.path.exists(config.data_path):
+        os.mkdir(config.data_path)
+    else:
+        print('dataset detected, skipping')
+    train_tasks=[]
+    test_tasks=[]
+    for i in range(config.end_template_id-config.start_template_id+1):
+        for j in range(0,int(config.num_mods*0.8)):
+            train_tasks.append(config.task_ids[i*config.num_mods+j])
+        for j in range(int(config.num_mods*0.8), config.num_mods):
+            test_tasks.append(config.task_ids[i*config.num_mods+j])
+    print('train_tasks: ', train_tasks)
+    print('test_tasks: ', test_tasks)
 
-    #os.system('rm %s/processed_data.pt' % data_path)
-    #os.system('rm %s/processed_data_test.pt' % data_path)
-    dataset = GDataset(data_path, nfeat=vfeat, train=True)
+    dataset = GDataset(config, train_tasks, nfeat=vfeat, train=True)
     dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
     if config.eval:
-        testset = GDataset(data_path, nfeat=vfeat, train=False)
+        #print('.eval=true!')
+        testset = GDataset(config, test_tasks, nfeat=vfeat, train=False)
         testloader = DataLoader(testset, batch_size=batch_size, drop_last=True, shuffle=True)
+
+
     criterion = nn.MSELoss()
     criterion_sum = nn.MSELoss(reduction='sum')
     # print('train len: ', len(dataloader))
@@ -242,14 +251,12 @@ def gtrain(config):
         #    epoch_nb = int(file.split('.')[0])
         #    if epoch_nb < best_epoch:
         #        os.remove(file)
-        #if(epoch%5==0):
-        #    torch.save(model.state_dict(), root_dir + '/saved_models/%s-ep%d.pth' % (exp_name,epoch))
-    dir=os.path.dirname(__file__)
-    torch.save(model.state_dict(), model_path)
-    print('saved to'+ model_path)
+        if(epoch%5==0):
+            torch.save(model.state_dict(), config.simnet_root_dir + '/saved_models/%s-ep%d.pth' % (config.exp_name,epoch))
+    torch.save(model.state_dict(), config.model_path)
+    print('saved to'+ config.model_path)
     files = glob.glob('*.pkl')
     for file in files:
         epoch_nb = int(file.split('.')[0])
         if epoch_nb > best_epoch:
             os.remove(file)
-    return exp_name

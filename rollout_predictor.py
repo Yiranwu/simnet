@@ -9,26 +9,26 @@ from torch.autograd import Variable
 from torch.utils.tensorboard import SummaryWriter
 
 #from utils import load_data, accuracy
-from gen_dataset import get_data_from_string, get_obj_attrs
+from data_utils import get_data_from_string, get_obj_attrs
 from models import *
-from datasets import GDataset, GTestDataset
+from datasets import GDataset
+from gtrain_general import get_model_by_name
 
 class rollout_predictor():
-    def __init__(self, model_path='gin-5-60.pth', dataset_spec='00001_'):
-        self.model_path=model_path
+    def __init__(self, config):
         batch_size=128
         self.nfeat=nfeat=12
         self.nembed=nembed=32
         self.cuda=True
-        net=GINE(vfeat=12, hidden=32, nclass=6)
+        net=get_model_by_name(config.model_name)
         #net=TestLinear(cin=nfeat+nembed, cout=6)
         model=net.double()
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(config.model_path))
         if self.cuda:
             model.cuda()
         model.eval()
         self.model=model
-        mean_std=np.load('/home/yiran/pc_mapping/simnet/data/%smean_std.npz'%dataset_spec)
+        mean_std=np.load(config.data_path+'/mean_std.npz')
         self.mean=mean_std['mean']
         self.std=mean_std['std']
         self.mean_label=mean_std['mean_label']

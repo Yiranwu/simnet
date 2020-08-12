@@ -4,6 +4,7 @@ import time
 import random
 import argparse
 import numpy as np
+import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -158,6 +159,16 @@ def get_model_by_name(name):
         return GINE(vfeat=12, hidden=32, nclass=6)
     elif name=='ginewobn':
         return GINEWOBN(vfeat=12, hidden=32, nclass=6)
+    elif name=='ginewide':
+        return GINEWide(vfeat=12, hidden=128, nclass=6)
+    elif name=='gineshallow':
+        return GINE(vfeat=12, hidden=32, nclass=6, layers=3)
+    elif name=='ginedeep':
+        return GINE(vfeat=12, hidden=32, nclass=6, layers=8)
+    elif name=='ginewideshallow':
+        return GINE(vfeat=12, hidden=128, nclass=6, layers=3)
+    elif name=='ginewidedeep':
+        return GINE(vfeat=12, hidden=128, nclass=6, layers=8)
     else:
         print('unrecognized model name!')
         exit()
@@ -205,19 +216,19 @@ def gtrain(config):
     train_tasks=[]
     test_tasks=[]
     for i in range(config.end_template_id-config.start_template_id+1):
-        for j in range(0,int(config.num_mods*0.8)):
+        for j in range(0,math.ceil(config.num_mods*0.8)):
             train_tasks.append(config.task_ids[i*config.num_mods+j])
-        for j in range(int(config.num_mods*0.8), config.num_mods):
+        for j in range(math.ceil(config.num_mods*0.8), config.num_mods):
             test_tasks.append(config.task_ids[i*config.num_mods+j])
     print('train_tasks: ', train_tasks)
     print('test_tasks: ', test_tasks)
 
     dataset = GDataset(config, train_tasks, nfeat=vfeat, train=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, drop_last=True, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     if config.eval:
         #print('.eval=true!')
         testset = GDataset(config, test_tasks, nfeat=vfeat, train=False)
-        testloader = DataLoader(testset, batch_size=batch_size, drop_last=True, shuffle=True)
+        testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
 
 
     criterion = nn.MSELoss()
@@ -251,7 +262,7 @@ def gtrain(config):
         #    epoch_nb = int(file.split('.')[0])
         #    if epoch_nb < best_epoch:
         #        os.remove(file)
-        if(epoch%5==0):
+        if(epoch%10==0):
             torch.save(model.state_dict(), config.simnet_root_dir + '/saved_models/%s-ep%d.pth' % (config.exp_name,epoch))
     torch.save(model.state_dict(), config.model_path)
     print('saved to'+ config.model_path)

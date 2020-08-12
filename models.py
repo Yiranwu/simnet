@@ -12,9 +12,18 @@ class ObjectEncoder(nn.Module):
         self.l3=nn.Linear(32,cout)
 
     def forward(self, x):
+        #print('obj enc begin, x=', x)
+        #print('x shape: ', x.shape)
+        #print('x max and min: ', torch.max(x), torch.min(x))
+        #print('bias:', self.l1.bias)
+        #print('weight:', self.l1.weight)
         x = F.relu(self.l1(x))
+        #print('obj enc after l1, x=', x)
         x = F.relu(self.l2(x))
+        #print('obj enc after l2, x=', x)
         x = self.l3(x)
+        #print('obj enc after l3, x=', x)
+        #exit()
         return x
 
 class TestLinear(nn.Module):
@@ -246,22 +255,123 @@ class GINE(GNet):
     def forward(self, data):
 
         x=data.x
+        #print('data.x= ', data.x)
         obj_feat=self.encode_obj(x[:,:self.vfeat])
+        #print('obj feat= ', obj_feat)
         x=obj_feat
         #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
         for i in range(self.layers):
             edge_feat=self.edge_encoders[i](data.edge_attr)
+            #print('layer %d edge feat= '%i, edge_feat)
             x=self.convs[i](x, data.edge_index, edge_feat)
+            #print('layer %d conv= '%i, x)
             x=F.relu(x)
             x=self.bns[i](x)
-
+            #print('layer %d bn= '%i, x)
+        #exit()
         x = F.relu(self.fc1(x))
-        x = F.dropout(x, p=0.5, training=self.training)
+        #x = F.dropout(x, p=0.5, training=self.training)
         x = self.fc2(x)
         return x
         #return F.log_softmax(x, dim=-1)
 
 
+
+class GINEWide(GNet):
+    def __init__(self, layers=5, vfeat=12, efeat=4, hidden=32, nclass=6):
+        super(GINEWide, self).__init__(vfeat, hidden)
+        self.layers=layers
+        self.vfeat=vfeat
+        self.efeat=efeat
+        self.hidden=hidden
+        self.nclass=nclass
+        self.convs=nn.ModuleList()
+        self.bns=nn.ModuleList()
+        self.edge_encoders=nn.ModuleList()
+        for i in range(layers):
+            hfunc=nn.Sequential(nn.Linear(hidden, 2 * hidden),
+                                nn.BatchNorm1d(2 * hidden),
+                                nn.ReLU(),
+                                nn.Linear(2 * hidden, hidden),)
+            self.convs.append(GINEConv(hfunc, train_eps=True))
+            self.bns.append(nn.BatchNorm1d(hidden))
+            self.edge_encoders.append(nn.Sequential(nn.Linear(efeat, hidden),
+                                            nn.ReLU(),
+                                            nn.Linear(hidden,hidden),))
+
+        self.fc1 = nn.Linear(hidden, hidden)
+        self.fc2 = nn.Linear(hidden, nclass)
+
+    def forward(self, data):
+
+        x=data.x
+        #print('data.x= ', data.x)
+        obj_feat=self.encode_obj(x[:,:self.vfeat])
+        #print('obj feat= ', obj_feat)
+        x=obj_feat
+        #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
+        for i in range(self.layers):
+            edge_feat=self.edge_encoders[i](data.edge_attr)
+            #print('layer %d edge feat= '%i, edge_feat)
+            x=self.convs[i](x, data.edge_index, edge_feat)
+            #print('layer %d conv= '%i, x)
+            x=F.relu(x)
+            x=self.bns[i](x)
+            #print('layer %d bn= '%i, x)
+        #exit()
+        x = F.relu(self.fc1(x))
+        #x = F.dropout(x, p=0.5, training=self.training)
+        x = self.fc2(x)
+        return x
+        #return F.log_softmax(x, dim=-1)
+
+class GINEShallow(GNet):
+    def __init__(self, layers=3, vfeat=12, efeat=4, hidden=32, nclass=6):
+        super(GINEWide, self).__init__(vfeat, hidden)
+        self.layers=layers
+        self.vfeat=vfeat
+        self.efeat=efeat
+        self.hidden=hidden
+        self.nclass=nclass
+        self.convs=nn.ModuleList()
+        self.bns=nn.ModuleList()
+        self.edge_encoders=nn.ModuleList()
+        for i in range(layers):
+            hfunc=nn.Sequential(nn.Linear(hidden, 2 * hidden),
+                                nn.BatchNorm1d(2 * hidden),
+                                nn.ReLU(),
+                                nn.Linear(2 * hidden, hidden),)
+            self.convs.append(GINEConv(hfunc, train_eps=True))
+            self.bns.append(nn.BatchNorm1d(hidden))
+            self.edge_encoders.append(nn.Sequential(nn.Linear(efeat, hidden),
+                                            nn.ReLU(),
+                                            nn.Linear(hidden,hidden),))
+
+        self.fc1 = nn.Linear(hidden, hidden)
+        self.fc2 = nn.Linear(hidden, nclass)
+
+    def forward(self, data):
+
+        x=data.x
+        #print('data.x= ', data.x)
+        obj_feat=self.encode_obj(x[:,:self.vfeat])
+        #print('obj feat= ', obj_feat)
+        x=obj_feat
+        #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
+        for i in range(self.layers):
+            edge_feat=self.edge_encoders[i](data.edge_attr)
+            #print('layer %d edge feat= '%i, edge_feat)
+            x=self.convs[i](x, data.edge_index, edge_feat)
+            #print('layer %d conv= '%i, x)
+            x=F.relu(x)
+            x=self.bns[i](x)
+            #print('layer %d bn= '%i, x)
+        #exit()
+        x = F.relu(self.fc1(x))
+        #x = F.dropout(x, p=0.5, training=self.training)
+        x = self.fc2(x)
+        return x
+        #return F.log_softmax(x, dim=-1)
 
 class GINEWOBN(GNet):
     def __init__(self, layers=5, vfeat=12, efeat=4, hidden=32, nclass=6):

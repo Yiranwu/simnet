@@ -89,8 +89,10 @@ class GDataset(InMemoryDataset):
         if self.train:
             mean=torch.mean(data.x[:,:7], axis=0)
             std=torch.std(data.x[:,:7], axis=0)
+            std[std<1e-10]=1
             mean_label=torch.mean(data.y, axis=0)
             std_label=torch.std(data.y, axis=0)
+            std_label[std_label<1e-10]=1
         else:
             mean_std=np.load(self.root+'/mean_std.npz')
             mean=torch.from_numpy(mean_std['mean'])
@@ -104,6 +106,7 @@ class GDataset(InMemoryDataset):
         #print(torch.std(data.y, axis=0))
         data.x[:,:7]=(data.x[:,:7]-mean)/std
         data.y=(data.y-mean_label)/std_label
+
         #print('data.x after normalization: ')
         #print(torch.mean(data.x[:,:7],axis=0))
         #print(torch.std(data.x[:,:7],axis=0))
@@ -112,6 +115,11 @@ class GDataset(InMemoryDataset):
         #print(torch.std(data.y, axis=0))
         data.edge_attr[:, :2] = (data.edge_attr[:, :2] - mean[1:3]) / std[1:3]
         data.edge_attr[:, 2:] = (data.edge_attr[:, 2:] - mean[1:3]) / std[1:3]
+        if self.config.corrupt:
+            print('corrupt!')
+            data.x += 0.02 * torch.randn(data.x.shape)
+            data.edge_attr += 0.02 * torch.randn(data.edge_attr.shape)
+
         torch.save((data, slices), self.processed_paths[0])
         if self.train:
             np.savez(self.root+'/mean_std.npz', mean=mean.numpy(), std=std.numpy(),

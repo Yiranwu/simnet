@@ -41,6 +41,13 @@ class rollout_predictor():
         obj, conn, manifold=get_data_from_string(body_info, contact_info, self.attrs,
                                                  self.mean, self.std)
         obj=torch.from_numpy(obj)
+        obj_zeroed=obj.clone()
+        obj_zeroed[:,1]=0.0
+        obj_zeroed[:,2]=0.0
+        self.mean[1]=0.0
+        self.mean[2]=0.0
+        self.std[1]=1.0
+        self.std[2]=1.0
         if conn.shape[0] == 0:
             conn = conn.reshape([2, 0])
         if manifold.shape[0] == 0:
@@ -62,7 +69,10 @@ class rollout_predictor():
         output = self.model(gdata)
         movable_map = gdata.x[:, self.nfeat].bool()
         output=output[movable_map].detach().cpu().numpy()
+        #print('normalized output: ', output)
         output=output*self.std_label+self.mean_label
+        #print('denormed output: ', output)
+        #exit()
 
         obj_state_np=gdata.x[movable_map][:,:6].detach().cpu().numpy()
         output+=(obj_state_np*self.std[:6])+ self.mean[:6]

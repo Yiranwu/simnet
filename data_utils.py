@@ -20,6 +20,8 @@ def get_exp_name(config):
 def get_data_from_string(body_info, contact_info, obj_attr_data, mean, std):
     data = {'body_info': body_info, 'contact_info': contact_info}
     body_array, conn_array, manifold_array = get_scene_stats(data, obj_attr_data)
+    #body_array[:,1]=0
+    #body_array[:,2]=0
 
     body_array[:,:7] = (body_array[:,:7] - mean) / std
     if manifold_array.shape[0]>0:
@@ -55,7 +57,7 @@ def get_data_from_file(filename):
 
 def get_data_from_file(filename):
     datas=[json.loads(line) for line in open(filename,'r')]
-    timestep=600
+    timestep=100
 
     #obj_data, conn_data, manifold_data, label_data = [], [], [], []
     data_list = []
@@ -66,6 +68,8 @@ def get_data_from_file(filename):
         new_body_array, new_conn_array, new_manifold_array = get_scene_stats(datas[3+j],
                                                                              obj_attr_data)
         obj = torch.from_numpy(body_array).double()
+        #obj[:,1]=0
+        #obj[:,2]=0
         conn = conn_array
         if conn.shape[0] == 0:
             conn = conn.reshape([2, 0])
@@ -96,9 +100,6 @@ def get_padded(obj_data,label_data, pad_num):
     label_padded=np.concatenate([label_data, obj_pad], axis=1)
     return obj_padded, label_padded
 
-
-
-
 def get_obj_num_from_file(filename):
     datas=[json.loads(line) for line in open(filename,'r')]
     timestep=600
@@ -108,7 +109,6 @@ def get_obj_num_from_file(filename):
     obj_attr_data=get_obj_attrs(datas[0], datas[1])
     body_array, conn_array, manifold_array = get_scene_stats(datas[2], obj_attr_data)
     return body_array.shape[0]
-
 
 def get_obj_attrs(feat_obj, action_obj):
     attrs = []
@@ -144,25 +144,6 @@ def get_body_array(info, attr):
     arr[12] = attr['color']!='BLACK'
     return arr
 
-def get_init_body_array(attrs):
-    body_arrays=[]
-    for attr in attrs:
-        arr=np.zeros([13])
-        arr[0]=attr['initial_angle']
-        arr[1]=attr['initial_x']
-        arr[2]=attr['initial_y']
-        arr[3]=0.0
-        arr[4]=0.0
-        arr[5]=0.0
-
-
-        arr[6]=attr['diameter']
-        arr[7], arr[8], arr[9], arr[10], arr[11] = get_one_hot_attr(attr['shape'])
-        arr[12] = attr['color']!='BLACK'
-        body_arrays.append(arr)
-    body_arrays += [get_wall_array()]
-    return np.array(body_arrays), np.array([], dtype=np.int64)
-
 def get_wall_array():
     arr=np.zeros(13)
     arr[7], arr[8], arr[9], arr[10], arr[11] = get_one_hot_attr('WALL')
@@ -176,7 +157,7 @@ def process_body_info(body_info, attrs):
                   [get_wall_array()]
     return np.array(body_arrays)
 
-def process_contact_info(contact_info, wall_idx):
+def process_contact_info(contact_info, body_array, wall_idx):
     '''
     # contact info by adjacency matrix
     conn=np.zeros([4,4])
@@ -190,10 +171,15 @@ def process_contact_info(contact_info, wall_idx):
     '''
     # contact info by (x,y) pair
     #'''
+    assert(len(body_array.shape)==2)
     conn = []
     manifold=[]
     for info in contact_info:
-        a,b=info['body_b'], info['body_a']
+        b,a=info['body_b'], info['body_a']
+        if a==-1: a=wall_idx
+        if b==-1: b=wall_idx
+        ax,ay=body_array[a][1], body_array[a][2]
+        bx,by=body_array[b][1], body_array[b][2]
         nx,ny=info['manifold_normal']
         pts=info['points']
         # seems that len(pts)=2
@@ -205,12 +191,15 @@ def process_contact_info(contact_info, wall_idx):
         else:
             p=pts
             px,py=p
-        if a==-1: a=wall_idx
-        if b==-1: b=wall_idx
         conn.append([a,b])
         conn.append([b,a])
-        manifold.append([nx,ny, px, py])
-        manifold.append([nx,ny, px, py])
+        # normal points from objA to objB
+        #manifold.append([nx,ny, px, py])
+        #manifold.append([nx,ny, px, py])
+        #manifold.append([0.0,0.0,0.0,0.0])
+        #manifold.append([0.0,0.0,0.0,0.0])
+        manifold.append([nx,ny, px-ax, py-ay])
+        manifold.append([-nx,-ny, px-bx, py-by])
     conn=np.array(conn, dtype=np.int64)
     manifold=np.array(manifold)
     if conn.shape[0]>0: conn = np.transpose(conn, (1,0))
@@ -219,6 +208,7 @@ def process_contact_info(contact_info, wall_idx):
 
 def get_scene_stats(data, attrs):
     body_array=process_body_info(data['body_info']['bodies'], attrs)
-    conn_array, manifold_array=process_contact_info(data['contact_info']['contacts'], len(attrs))
+    conn_array, manifold_array=process_contact_info(data['contact_info']['contacts'],
+                                                    body_array,  len(attrs))
     return body_array, conn_array, manifold_array
 

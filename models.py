@@ -1,15 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv,GATConv, GINConv, global_add_pool, GINEConv
+from torch_geometric.nn import GCNConv,GATConv, GINConv, global_add_pool, GINEConv, SplineConv
 
 class ObjectEncoder(nn.Module):
     def __init__(self, cin=12, cout=32):
         """Sparse version of GAT."""
         super(ObjectEncoder, self).__init__()
-        self.l1=nn.Linear(cin, 32)
-        self.l2=nn.Linear(32,32)
-        self.l3=nn.Linear(32,cout)
+        self.l1=nn.Linear(cin, cout)
+        self.l2=nn.Linear(cout,cout)
+        self.l3=nn.Linear(cout,cout)
 
     def forward(self, x):
         #print('obj enc begin, x=', x)
@@ -300,7 +300,8 @@ class GINEWide(GNet):
                                             nn.Linear(hidden,hidden),))
 
         self.fc1 = nn.Linear(hidden, hidden)
-        self.fc2 = nn.Linear(hidden, nclass)
+        self.fc2 = nn.Linear(hidden, hidden)
+        self.fc3 = nn.Linear(hidden, nclass)
 
     def forward(self, data):
 
@@ -309,6 +310,7 @@ class GINEWide(GNet):
         obj_feat=self.encode_obj(x[:,:self.vfeat])
         #print('obj feat= ', obj_feat)
         x=obj_feat
+
         #x=torch.cat([obj_feat, x[:,:self.vfeat]], axis=1)
         for i in range(self.layers):
             edge_feat=self.edge_encoders[i](data.edge_attr)
@@ -320,8 +322,9 @@ class GINEWide(GNet):
             #print('layer %d bn= '%i, x)
         #exit()
         x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         #x = F.dropout(x, p=0.5, training=self.training)
-        x = self.fc2(x)
+        x = self.fc3(x)
         return x
         #return F.log_softmax(x, dim=-1)
 
@@ -415,3 +418,47 @@ class GINEWOBN(GNet):
         x = self.fc2(x)
         return x
         #return F.log_softmax(x, dim=-1)
+
+
+class GLinear(GNet):
+    def __init__(self, layers=5, vfeat=12, efeat=4, hidden=32, nclass=6):
+        super(GLinear, self).__init__(vfeat, hidden)
+        self.layers=layers
+        self.vfeat=vfeat
+        self.efeat=efeat
+        self.hidden=hidden
+        self.nclass=nclass
+
+        #self.fc1 = nn.Linear(hidden, hidden)
+        #self.fc2 = nn.Linear(hidden, nclass)
+
+        self.fc1 = nn.Linear(13, 1024)
+        self.fc2 = nn.Linear(1024, 1024)
+        self.fc3 = nn.Linear(1024, nclass)
+
+    def forward(self, data):
+
+        x=data.x
+        #obj_feat=self.encode_obj(x[:,:self.vfeat])
+        #x=obj_feat
+        x=F.relu(self.fc1(x))
+        x=F.relu(self.fc2(x))
+        x=self.fc3(x)
+        return x
+        #return F.log_softmax(x, dim=-1)
+
+'''
+class SplineNet(GNet):
+    def __init__(self):
+        super(SplineNet, self).__init__()
+        self.conv1 = SplineConv(dataset.num_features, 16, dim=1, kernel_size=2)
+        self.conv2 = SplineConv(16, dataset.num_classes, dim=1, kernel_size=2)
+
+    def forward(self, data):
+        x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
+        x = F.dropout(x, training=self.training)
+        x = F.elu(self.conv1(x, edge_index, edge_attr))
+        x = F.dropout(x, training=self.training)
+        x = self.conv2(x, edge_index, edge_attr)
+        return F.log_softmax(x, dim=1)
+'''

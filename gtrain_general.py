@@ -56,6 +56,8 @@ def train(config, epoch, model, dataloader, optimizer, vfeat, criterion, writer)
         movable_map=data.x[:,vfeat].bool()
         masked_output = output[movable_map]
         masked_label = data.y[movable_map]
+        #print('label: ', masked_label)
+        #print('output: ', masked_output)
         # output shape: batch x 3 x 6
         loss = criterion(masked_output, masked_label)
         loss_train_1=criterion(masked_output[:,0], masked_label[:,0]).data.item()
@@ -161,6 +163,8 @@ def get_model_by_name(name):
         return GINEWOBN(vfeat=12, hidden=32, nclass=6)
     elif name=='ginewide':
         return GINEWide(vfeat=12, hidden=128, nclass=6)
+    elif name=='ginesuperwide':
+        return GINEWide(vfeat=12, hidden=1024, nclass=6)
     elif name=='gineshallow':
         return GINE(vfeat=12, hidden=32, nclass=6, layers=3)
     elif name=='ginedeep':
@@ -169,6 +173,8 @@ def get_model_by_name(name):
         return GINE(vfeat=12, hidden=128, nclass=6, layers=3)
     elif name=='ginewidedeep':
         return GINE(vfeat=12, hidden=128, nclass=6, layers=8)
+    elif name=='glinear':
+        return GLinear(vfeat=12, hidden=128, nclass=6)
     else:
         print('unrecognized model name!')
         exit()
@@ -262,7 +268,7 @@ def gtrain(config):
         #    epoch_nb = int(file.split('.')[0])
         #    if epoch_nb < best_epoch:
         #        os.remove(file)
-        if(epoch%10==0):
+        if(config.intermediate_save and epoch%10==0):
             torch.save(model.state_dict(), config.simnet_root_dir + '/saved_models/%s-ep%d.pth' % (config.exp_name,epoch))
     torch.save(model.state_dict(), config.model_path)
     print('saved to'+ config.model_path)

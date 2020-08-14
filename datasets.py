@@ -56,9 +56,14 @@ class GDataset(InMemoryDataset):
             data = data_utils.get_data_from_file(filename)
             data_list=data_list+data
         data, slices = self.collate(data_list)
+        assert(len(data.x.shape)==2)
+        data.x[:,1]=0
+        data.x[:,2]=0
         #print('second collate:')
         #print('data.x: ', data.x.shape)
         #print('data.y: ', data.y.shape)
+        #print(data.y)
+        #exit()
 
         '''
         if config.normalize:

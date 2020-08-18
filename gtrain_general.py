@@ -9,14 +9,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch_geometric.data import DataLoader
+from torch_geometric.data import DataLoader, DataListLoader
 from torch.utils.tensorboard import SummaryWriter
+from torch_geometric.nn.data_parallel import DataParallel
 
 
 #from utils import load_data, accuracy
 from models import *
-from data_utils import get_dataset_name
+from get_name import get_dataset_name
 from datasets import GDataset
+
+
+def isMultiGPU(config):
+    return len(config.devices)>1
 
 def get_config():
     parser = argparse.ArgumentParser()
@@ -52,10 +57,72 @@ def train(config, epoch, model, dataloader, optimizer, vfeat, criterion, writer)
         if(config.cuda):
             data=data.to(config.device)
         optimizer.zero_grad()
+        #print('model device:', model.device)
+        #print('data device:', data.device)
+        #print('len data: ', len(data))
+        #print(data)
         output=model(data)
+        #exit()
         movable_map=data.x[:,vfeat].bool()
         masked_output = output[movable_map]
         masked_label = data.y[movable_map]
+        #print('label: ', masked_label)
+        #print('output: ', masked_output)
+        # output shape: batch x 3 x 6
+        loss = criterion(masked_output, masked_label)
+        loss_train_1=criterion(masked_output[:,0], masked_label[:,0]).data.item()
+        loss_train_2=criterion(masked_output[:,1], masked_label[:,1]).data.item()
+        loss_train_3=criterion(masked_output[:,2], masked_label[:,2]).data.item()
+        loss_train_4=criterion(masked_output[:,3], masked_label[:,3]).data.item()
+        loss_train_5=criterion(masked_output[:,4], masked_label[:,4]).data.item()
+        loss_train_6=criterion(masked_output[:,5], masked_label[:,5]).data.item()
+
+        loss.backward()
+        optimizer.step()
+
+        loss_val += loss.data.item()
+        loss_val_1+=loss_train_1
+        loss_val_2+=loss_train_2
+        loss_val_3+=loss_train_3
+        loss_val_4+=loss_train_4
+        loss_val_5+=loss_train_5
+        loss_val_6+=loss_train_6
+
+    loss_val/=len(dataloader)
+    loss_val_1/=len(dataloader)
+    loss_val_2/=len(dataloader)
+    loss_val_3/=len(dataloader)
+    loss_val_4/=len(dataloader)
+    loss_val_5/=len(dataloader)
+    loss_val_6/=len(dataloader)
+    print('epoch %d, loss %f, time=%f'%(epoch, loss_val,time.time()-t))
+    print('loss each channel: %f %f %f %f %f %f'%(loss_val_1, loss_val_2,
+                                                  loss_val_3,loss_val_4,
+                                                  loss_val_5,loss_val_6))
+    print('train loss: ', loss_val)
+    #print('closs/allloss: %f/%f=%f',closs_val,allloss_val,closs_val/allloss_val)
+    #print('cpoint/allpoint ', ccnt_val, cnt_val, ccnt_val/cnt_val)
+    writer.add_scalar('train_loss', loss_val, global_step=epoch)
+    return loss_val
+
+def train_multigpu(config, epoch, model, dataloader, optimizer, vfeat, criterion, writer):
+    t = time.time()
+    model.train()
+    loss_val=0
+    loss_val_1, loss_val_2, loss_val_3, loss_val_4, loss_val_5, loss_val_6=0,0,0,0,0,0
+    closs_val, allloss_val = 0,0
+    ccnt_val, cnt_val=0,0
+    for data_list in dataloader:
+        optimizer.zero_grad()
+        #print('model device:', model.device)
+        #print('data device:', data.device)
+        #print('len data: ', len(data))
+        output=model(data_list)
+        #exit()
+        movable_map=torch.cat([data.x[:,vfeat] for data in data_list]).bool()
+        masked_output = output[movable_map]
+        masked_label = torch.cat([data.y for data in data_list], axis=0)[movable_map]
+        masked_label=masked_label.to(masked_output.device)
         #print('label: ', masked_label)
         #print('output: ', masked_output)
         # output shape: batch x 3 x 6
@@ -156,6 +223,68 @@ def eval(config, epoch, model, testloader, vfeat, criterion, writer):
     return loss_val
 
 
+def eval_multigpu(config, epoch, model, testloader, vfeat, criterion, writer):
+    t = time.time()
+    model.eval()
+    loss_val=0
+    loss_val_1, loss_val_2, loss_val_3, loss_val_4, loss_val_5, loss_val_6=0,0,0,0,0,0
+
+    for data_list in testloader:
+        if(config.cuda):
+            data=data.to(config.device)
+        output = model(data_list)
+        # exit()
+        movable_map = torch.cat([data.x[:, vfeat] for data in data_list]).bool()
+        masked_output = output[movable_map]
+        masked_label = torch.cat([data.y for data in data_list], axis=0)[movable_map]
+        masked_label = masked_label.to(masked_output.device)
+        # output shape: batch x 3 x 6
+        loss = criterion(masked_output, masked_label)
+        loss_train_1=criterion(masked_output[:,0], masked_label[:,0]).data.item()
+        loss_train_2=criterion(masked_output[:,1], masked_label[:,1]).data.item()
+        loss_train_3=criterion(masked_output[:,2], masked_label[:,2]).data.item()
+        loss_train_4=criterion(masked_output[:,3], masked_label[:,3]).data.item()
+        loss_train_5=criterion(masked_output[:,4], masked_label[:,4]).data.item()
+        loss_train_6=criterion(masked_output[:,5], masked_label[:,5]).data.item()
+
+        '''
+        ccnt=torch.zeros([output.shape[0]])
+        ccnt[data.edge_index[0]] += 1
+        print(ccnt)
+        print(data.edge_index)
+        cflag=ccnt>0
+
+        all_loss=criterion_sum(output[:,4], data.y[:,4]).data.item()
+        c_loss = criterion_sum(output[cflag][:,4], data.y[cflag][:,4]).data.item()
+        print(all_loss, c_loss)
+        exit()
+        '''
+
+        loss_val += loss.data.item()
+        loss_val_1+=loss_train_1
+        loss_val_2+=loss_train_2
+        loss_val_3+=loss_train_3
+        loss_val_4+=loss_train_4
+        loss_val_5+=loss_train_5
+        loss_val_6+=loss_train_6
+
+    loss_val/=len(testloader)
+    loss_val_1/=len(testloader)
+    loss_val_2/=len(testloader)
+    loss_val_3/=len(testloader)
+    loss_val_4/=len(testloader)
+    loss_val_5/=len(testloader)
+    loss_val_6/=len(testloader)
+    print('epoch %d, loss %f, time=%f'%(epoch, loss_val,time.time()-t))
+    print('loss each channel: %f %f %f %f %f %f'%(loss_val_1, loss_val_2,
+                                                  loss_val_3,loss_val_4,
+                                                  loss_val_5,loss_val_6))
+    writer.add_scalar('eval_loss', loss_val, global_step=epoch)
+    print('test loss: ', loss_val)
+
+    return loss_val
+
+
 def get_model_by_name(name):
     if name=='gine':
         return GINE(vfeat=12, hidden=32, nclass=6)
@@ -163,8 +292,10 @@ def get_model_by_name(name):
         return GINEWOBN(vfeat=12, hidden=32, nclass=6)
     elif name=='ginewide':
         return GINEWide(vfeat=12, hidden=128, nclass=6)
+    elif name=='ginewider':
+        return GINEWide(vfeat=12, hidden=512, nclass=6)
     elif name=='ginesuperwide':
-        return GINEWide(vfeat=12, hidden=1024, nclass=6)
+        return GINEWide(vfeat=12, hidden=1024, nclass=6, layers=2)
     elif name=='gineshallow':
         return GINE(vfeat=12, hidden=32, nclass=6, layers=3)
     elif name=='ginedeep':
@@ -178,6 +309,7 @@ def get_model_by_name(name):
     else:
         print('unrecognized model name!')
         exit()
+
 
 #def gtrain(model_name, dataset_name, epochs, device, clear=False):
 def gtrain(config):
@@ -204,14 +336,16 @@ def gtrain(config):
     #net = GINE(vfeat=12, hidden=32, nclass=6)
     # net=TestLinear(cin=nfeat+nembed, cout=6)
     model = net.double()
+    if(isMultiGPU(config)):
+        model=DataParallel(model)
+    if config.cuda:
+        model.to(config.device)
 
     all_param = model.parameters()
     optimizer = optim.Adam(all_param,
                            lr=config.lr,
                            weight_decay=config.weight_decay)
 
-    if config.cuda:
-        model.to(config.device)
 
     if config.clear_graph_data:
         os.system('rm -r %s'%config.data_path)
@@ -230,11 +364,17 @@ def gtrain(config):
     print('test_tasks: ', test_tasks)
 
     dataset = GDataset(config, train_tasks, nfeat=vfeat, train=True)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    if isMultiGPU(config):
+        dataloader=DataListLoader(dataset, batch_size=batch_size, shuffle=True)
+    else:
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     if config.eval:
         #print('.eval=true!')
         testset = GDataset(config, test_tasks, nfeat=vfeat, train=False)
-        testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
+        if isMultiGPU(config):
+            testloader = DataListLoader(testset, batch_size=batch_size, shuffle=True)
+        else:
+            testloader = DataLoader(testset, batch_size=batch_size, shuffle=True)
 
 
     criterion = nn.MSELoss()
@@ -249,9 +389,16 @@ def gtrain(config):
     best_epoch = 0
     for epoch in range(config.epochs):
         # args, epoch, model, dataloader, optimizer, vfeat, criterion, writer
-        loss_values.append(train(config, epoch, model, dataloader, optimizer, vfeat, criterion, writer))
+        if isMultiGPU(config):
+            loss_values.append(train_multigpu(config, epoch, model, dataloader, optimizer, vfeat, criterion, writer))
+        else:
+
+            loss_values.append(train(config, epoch, model, dataloader, optimizer, vfeat, criterion, writer))
         if config.eval:
-            eval(config, epoch, model, testloader, vfeat, criterion, writer)
+            if isMultiGPU(config):
+                eval_multigpu(config, epoch, model, testloader, vfeat, criterion, writer)
+            else:
+                eval(config, epoch, model, testloader, vfeat, criterion, writer)
         #torch.save(model.state_dict(), '{}.pkl'.format(epoch))
         #if loss_values[-1] < best:
         #    best = loss_values[-1]

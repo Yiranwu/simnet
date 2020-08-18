@@ -17,6 +17,9 @@ class ObjectEncoder(nn.Module):
         #print('x max and min: ', torch.max(x), torch.min(x))
         #print('bias:', self.l1.bias)
         #print('weight:', self.l1.weight)
+        #print('weight: ', self.l1.weight.device)
+        #print('data: ', x.device)
+        #exit()
         x = F.relu(self.l1(x))
         #print('obj enc after l1, x=', x)
         x = F.relu(self.l2(x))
@@ -434,7 +437,9 @@ class GLinear(GNet):
 
         self.fc1 = nn.Linear(13, 1024)
         self.fc2 = nn.Linear(1024, 1024)
-        self.fc3 = nn.Linear(1024, nclass)
+        self.fc3 = nn.Linear(1024, 1024)
+        self.fc4 = nn.Linear(1024, 1024)
+        self.fc5 = nn.Linear(1024, nclass)
 
     def forward(self, data):
 
@@ -443,7 +448,9 @@ class GLinear(GNet):
         #x=obj_feat
         x=F.relu(self.fc1(x))
         x=F.relu(self.fc2(x))
-        x=self.fc3(x)
+        x=F.relu(self.fc3(x))
+        x=F.relu(self.fc4(x))
+        x=self.fc5(x)
         return x
         #return F.log_softmax(x, dim=-1)
 

@@ -53,6 +53,7 @@ class rollout_predictor():
         if manifold.shape[0] == 0:
             manifold = manifold.reshape([0,4])
         conn=torch.from_numpy(conn)
+        #print('@rollout_predictor: manifold=', manifold)
         manifold=torch.from_numpy(manifold)
         gdata = Data(x=obj, edge_index=conn, edge_attr=manifold)
         #data,slices = self.collate([gdata])
@@ -76,6 +77,14 @@ class rollout_predictor():
 
         obj_state_np=gdata.x[movable_map][:,:6].detach().cpu().numpy()
         output+=(obj_state_np*self.std[:6])+ self.mean[:6]
-        return output, np.where(movable_map.cpu().numpy())[0]
+        obj_attr = self.assemble_into_dict(output)
+        return obj_attr, np.where(movable_map.cpu().numpy())[0]
 
+    def assemble_into_dict(self, obj_data_np):
+        obj_attr = []
+        for i in range(obj_data_np.shape[0]):
+            obj_data=obj_data_np[i]
+            obj_attr.append({'theta': obj_data[0], 'x': obj_data[1], 'y': obj_data[2],
+                             'omega': obj_data[5],'vx': obj_data[3], 'vy': obj_data[4]})
+        return obj_attr
 

@@ -11,7 +11,14 @@ def get_data_from_string(body_info, contact_info, obj_attr_data, mean, std):
     body_array, conn_array, manifold_array = get_scene_stats(data, obj_attr_data)
     #body_array[:,1]=0
     #body_array[:,2]=0
-
+    if conn_array.shape[0] == 0:
+        conn = conn_array.reshape([2, 0])
+    if manifold_array.shape[0] == 0:
+        manifold = manifold_array.reshape([0, 4])
+    #print('@get_data_from_string:')
+    #print(manifold_array)
+    #print(manifold_array.shape)
+    #exit()
     body_array[:,:7] = (body_array[:,:7] - mean) / std
     if manifold_array.shape[0]>0:
         manifold_array[:,:2]=(manifold_array[:,:2]-mean[1:3])/std[1:3]
@@ -171,15 +178,18 @@ def process_contact_info(contact_info, body_array, wall_idx):
         bx,by=body_array[b][1], body_array[b][2]
         nx,ny=info['manifold_normal']
         pts=info['points']
+        npoint = info['point_count']
         # seems that len(pts)=2
-        if(len(pts)==2):
+        if(npoint==2):
             p1,p2=pts
             px1,py1=p1
             px2,py2=p2
             px,py=(px1+px2)/2, (py1+py2)/2
-        else:
-            p=pts
+        elif(npoint==1):
+            p=pts[0]
             px,py=p
+        else:
+            raise RuntimeError()
         conn.append([a,b])
         conn.append([b,a])
         # normal points from objA to objB

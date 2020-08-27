@@ -5,6 +5,7 @@ from get_config import get_config
 config=get_config()
 
 from rollout_simulation import simulate
+from pgs_simulation import simulate as pgs_simulate
 from replay_compare import compare
 from gtrain_general import gtrain
 from box2d_simulate import box2d_simulate
@@ -34,6 +35,14 @@ def run_rollout(config, **kwargs):
     config.log_path=config.exp_name
     simulate(config)
 
+def run_pgs_rollout(config, **kwargs):
+    if config is None:
+        config=get_config()
+    for name, val in kwargs.items():
+        setattr(config, name, val)
+    config.log_path=config.exp_name
+    pgs_simulate(config)
+
 def run_compare(config, **kwargs):
     if config is None:
         config=get_config()
@@ -47,6 +56,16 @@ def run_eval(config, **kwargs):
     for name, val in kwargs.items():
         setattr(config, name, val)
     run_rollout(config)
+    print('rollout done')
+    run_compare(config)
+    print('compare done')
+
+def run_pgs_eval(config, **kwargs):
+    if config is None:
+        config=get_config()
+    for name, val in kwargs.items():
+        setattr(config, name, val)
+    run_pgs_rollout(config)
     print('rollout done')
     run_compare(config)
     print('compare done')
@@ -80,7 +99,8 @@ def main():
     #run_gtrain(config)
     #config.exp_name='ginewide_noev_ep200_lr0.001000_h128_0-11x100-ep10.pth'
     #config.model_path = config.simnet_root_dir + '/saved_models/' + config.exp_name
-    run_eval(config)
+    #run_eval(config)
+    run_pgs_eval(config)
     #exp_name = gtrain(config.model_name, dataset_name, epochs=40, device=device, clear=clear_nn)
     #config.exp_name=exp_name
     print('dataset name: ',config.dataset_name)

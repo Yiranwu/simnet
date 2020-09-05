@@ -94,7 +94,7 @@ def main():
     #dataset_name = generate_dataset(sid, eid, nmod, raw_dataset_name, task_ids, clear=clear_npy_data)
     # generate_dataset generates *_data.npy in simnet path
     #config.dataset_name=dataset_name
-    #run_box2d_simulate(config)
+    run_box2d_simulate(config)
     #exit()
     #run_gtrain(config)
     #config.exp_name='ginewide_noev_ep200_lr0.001000_h128_0-11x100-ep10.pth'

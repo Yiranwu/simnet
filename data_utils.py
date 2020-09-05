@@ -12,9 +12,9 @@ def get_data_from_string(body_info, contact_info, obj_attr_data, mean, std):
     #body_array[:,1]=0
     #body_array[:,2]=0
     if conn_array.shape[0] == 0:
-        conn = conn_array.reshape([2, 0])
+        conn_array = conn_array.reshape([2, 0])
     if manifold_array.shape[0] == 0:
-        manifold = manifold_array.reshape([0, 4])
+        manifold_array = manifold_array.reshape([0, 4])
     #print('@get_data_from_string:')
     #print(manifold_array)
     #print(manifold_array.shape)
@@ -149,8 +149,9 @@ def get_wall_array():
 def process_body_info(body_info, attrs):
     # {"idx": 0, "pos_x": -3.0, "pos_y": -9.344138145446777, "angle": 0.0, "velocity_x": 0.0,
     # "velocity_y": -0.37500059604644775, "angular_velocity": 0.0}
-    body_arrays = [get_body_array(info, attrs[id]) for id, info in enumerate(body_info)] + \
-                  [get_wall_array()]
+    body_arrays = [get_wall_array()] +\
+                  [get_body_array(info, attrs[id]) for id, info in enumerate(body_info[1:])]
+
     return np.array(body_arrays)
 
 def process_contact_info(contact_info, body_array, wall_idx):
@@ -172,8 +173,13 @@ def process_contact_info(contact_info, body_array, wall_idx):
     manifold=[]
     for info in contact_info:
         b,a=info['body_b'], info['body_a']
-        if a==-1: a=wall_idx
-        if b==-1: b=wall_idx
+        if a==-1:
+            print('obj idx -1 encountered')
+            exit()
+        if b==-1:
+            print('obj idx -1 encountered')
+            exit()
+            #b=wall_idx
         ax,ay=body_array[a][1], body_array[a][2]
         bx,by=body_array[b][1], body_array[b][2]
         nx,ny=info['manifold_normal']
